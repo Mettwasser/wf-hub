@@ -24,6 +24,7 @@ pub struct VoidFissuresApp {
     pub last_fetch: chrono::DateTime<Utc>,
     pub subscriptions: SubscriptionState,
     pub subscription_tx: watch::Sender<SubscriptionState>,
+    pub show_subscriptions: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -37,6 +38,8 @@ pub enum Message {
     SteelPathFilterChanged(SteelPathFilter),
     SubscriptionTierToggled(FissureTier),
     SubscriptionMissionToggled(MissionType),
+    ToggleSubscriptions,
+    TestAlert,
 }
 
 const REFRESH_INTERVAL_SECS: i64 = 300;
@@ -89,6 +92,7 @@ impl VoidFissuresApp {
             last_fetch: now,
             subscriptions: config.subscriptions,
             subscription_tx,
+            show_subscriptions: false,
         };
 
         (app, Task::done(Message::Startup))
@@ -190,6 +194,21 @@ impl VoidFissuresApp {
                 self.save_config();
                 Task::none()
             }
+            Message::ToggleSubscriptions => {
+                self.show_subscriptions = !self.show_subscriptions;
+                Task::none()
+            }
+            Message::TestAlert => {
+                Task::perform(
+                    async move {
+                        let _ = notify_rust::Notification::new()
+                            .summary("Warframe Hub")
+                            .body("This is a test alert. Your notifications are working correctly!")
+                            .show();
+                    },
+                    |_| Message::Tick(Utc::now()),
+                )
+            }
         }
     }
 
@@ -219,23 +238,47 @@ impl VoidFissuresApp {
                     .color(SOFT_GOLD),
             ],
             Space::new().width(Length::Fill),
-            column![
+            row![
                 button(
-                    text("REFRESH")
+                    text(if self.show_subscriptions { "CLOSE SETTINGS" } else { "MANAGE ALERTS" })
                         .size(14)
                         .font(bold_font())
-                        .align_x(Alignment::Center)
                 )
                 .padding([8, 16])
-                .on_press(Message::Refresh)
-                .style(refresh_button_style),
-                text(format!("Auto-refresh in: {}", countdown_text))
-                    .size(11)
-                    .color(TEXT_DIM)
-                    .align_x(Alignment::End),
+                .on_press(Message::ToggleSubscriptions)
+                .style(move |_theme, _status| {
+                    let active = self.show_subscriptions;
+                    button::Style {
+                        background: Some(if active { SOFT_GOLD } else { Color::TRANSPARENT }.into()),
+                        text_color: if active { Color::BLACK } else { SOFT_GOLD },
+                        border: Border {
+                            color: SOFT_GOLD,
+                            width: 1.0,
+                            radius: 4.0.into(),
+                        },
+                        ..Default::default()
+                    }
+                }),
+                Space::new().width(Length::Fixed(10.0)),
+                column![
+                    button(
+                        text("REFRESH")
+                            .size(14)
+                            .font(bold_font())
+                            .align_x(Alignment::Center)
+                    )
+                    .padding([8, 16])
+                    .on_press(Message::Refresh)
+                    .style(refresh_button_style),
+                    text(format!("Auto-refresh in: {}", countdown_text))
+                        .size(11)
+                        .color(TEXT_DIM)
+                        .align_x(Alignment::End),
+                ]
+                .spacing(4)
+                .align_x(Alignment::End)
             ]
-            .spacing(4)
-            .align_x(Alignment::End)
+            .align_y(Alignment::Start)
         ]
         .align_y(Alignment::Center)
         .padding(20);
@@ -243,7 +286,7 @@ impl VoidFissuresApp {
         let mut sorted_mission_types: Vec<_> = ALL_MISSION_TYPES.to_vec();
         sorted_mission_types.sort_by_key(|m| mission_type_name(*m));
 
-        let filter_bar = container(column![
+        let mut filter_content = column![
             row![
                 text("FILTERS:").size(12).font(bold_font()).color(TEXT_DIM),
                 Space::new().width(Length::Fixed(10.0)),
@@ -327,134 +370,161 @@ impl VoidFissuresApp {
                 .vertical_spacing(8)
             ]
             .align_y(Alignment::Start),
-            Space::new().height(Length::Fixed(20.0)),
-            // Refined Subscription Block
-            container(column![
-                text("NOTIFY ME ON:")
-                    .size(12)
-                    .font(bold_font())
-                    .color(SOFT_GOLD),
-                Space::new().height(Length::Fixed(12.0)),
-                row![
-                    text("Tiers:")
-                        .size(11)
-                        .color(TEXT_DIM)
-                        .width(Length::Fixed(70.0)),
+        ];
+
+        if self.show_subscriptions {
+            filter_content = filter_content.push(Space::new().height(Length::Fixed(20.0))).push(
+                container(column![
                     row![
-                        filter_chip(
-                            "LITH",
-                            FissureTier::Lith,
-                            &self.subscriptions.tiers,
-                            Message::SubscriptionTierToggled
-                        ),
-                        filter_chip(
-                            "MESO",
-                            FissureTier::Meso,
-                            &self.subscriptions.tiers,
-                            Message::SubscriptionTierToggled
-                        ),
-                        filter_chip(
-                            "NEO",
-                            FissureTier::Neo,
-                            &self.subscriptions.tiers,
-                            Message::SubscriptionTierToggled
-                        ),
-                        filter_chip(
-                            "AXI",
-                            FissureTier::Axi,
-                            &self.subscriptions.tiers,
-                            Message::SubscriptionTierToggled
-                        ),
-                        filter_chip(
-                            "REQUIEM",
-                            FissureTier::Requiem,
-                            &self.subscriptions.tiers,
-                            Message::SubscriptionTierToggled
-                        ),
-                        filter_chip(
-                            "OMNIA",
-                            FissureTier::Omnia,
-                            &self.subscriptions.tiers,
-                            Message::SubscriptionTierToggled
-                        ),
-                    ]
-                    .spacing(10),
-                ]
-                .align_y(Alignment::Center),
-                Space::new().height(Length::Fixed(12.0)),
-                row![
-                    text("Missions:")
-                        .size(11)
-                        .color(TEXT_DIM)
-                        .width(Length::Fixed(70.0)),
-                    row(sorted_mission_types.into_iter().map(|mtype| {
-                        let active = self.subscriptions.mission_types.contains(&mtype);
+                        text("NOTIFY ME ON:")
+                            .size(12)
+                            .font(bold_font())
+                            .color(SOFT_GOLD),
+                        Space::new().width(Length::Fill),
                         button(
-                            text(mission_type_name(mtype))
+                            text("TEST ALERT")
                                 .size(10)
                                 .font(bold_font())
-                                .align_x(Alignment::Center),
                         )
-                        .padding([3, 10])
-                        .on_press(Message::SubscriptionMissionToggled(mtype))
+                        .padding([4, 12])
+                        .on_press(Message::TestAlert)
                         .style(move |_theme, _status| {
-                            let base_bg = if active {
-                                Color {
-                                    a: 0.2,
-                                    ..SOFT_GOLD
-                                }
-                            } else {
-                                Color {
-                                    a: 0.03,
-                                    ..Color::WHITE
-                                }
-                            };
-                            let border_color = if active {
-                                SOFT_GOLD
-                            } else {
-                                Color {
-                                    a: 0.1,
-                                    ..Color::WHITE
-                                }
-                            };
                             button::Style {
-                                background: Some(base_bg.into()),
-                                text_color: if active { Color::WHITE } else { TEXT_DIM },
+                                background: Some(Color::TRANSPARENT.into()),
+                                text_color: SOFT_CYAN,
                                 border: Border {
-                                    color: border_color,
+                                    color: SOFT_CYAN,
                                     width: 1.0,
-                                    radius: 20.0.into(),
+                                    radius: 2.0.into(),
                                 },
                                 ..Default::default()
                             }
-                        })
-                        .into()
-                    }))
-                    .spacing(8)
-                    .wrap()
-                    .vertical_spacing(8)
-                ]
-                .align_y(Alignment::Start),
-            ])
-            .padding(15)
-            .style(|_theme| container::Style {
-                border: Border {
-                    color: Color {
-                        a: 0.1,
-                        ..SOFT_GOLD
+                        }),
+                    ].align_y(Alignment::Center),
+                    Space::new().height(Length::Fixed(12.0)),
+                    row![
+                        text("Tiers:")
+                            .size(11)
+                            .color(TEXT_DIM)
+                            .width(Length::Fixed(70.0)),
+                        row![
+                            filter_chip(
+                                "LITH",
+                                FissureTier::Lith,
+                                &self.subscriptions.tiers,
+                                Message::SubscriptionTierToggled
+                            ),
+                            filter_chip(
+                                "MESO",
+                                FissureTier::Meso,
+                                &self.subscriptions.tiers,
+                                Message::SubscriptionTierToggled
+                            ),
+                            filter_chip(
+                                "NEO",
+                                FissureTier::Neo,
+                                &self.subscriptions.tiers,
+                                Message::SubscriptionTierToggled
+                            ),
+                            filter_chip(
+                                "AXI",
+                                FissureTier::Axi,
+                                &self.subscriptions.tiers,
+                                Message::SubscriptionTierToggled
+                            ),
+                            filter_chip(
+                                "REQUIEM",
+                                FissureTier::Requiem,
+                                &self.subscriptions.tiers,
+                                Message::SubscriptionTierToggled
+                            ),
+                            filter_chip(
+                                "OMNIA",
+                                FissureTier::Omnia,
+                                &self.subscriptions.tiers,
+                                Message::SubscriptionTierToggled
+                            ),
+                        ]
+                        .spacing(10),
+                    ]
+                    .align_y(Alignment::Center),
+                    Space::new().height(Length::Fixed(12.0)),
+                    row![
+                        text("Missions:")
+                            .size(11)
+                            .color(TEXT_DIM)
+                            .width(Length::Fixed(70.0)),
+                        row(sorted_mission_types.into_iter().map(|mtype| {
+                            let active = self.subscriptions.mission_types.contains(&mtype);
+                            button(
+                                text(mission_type_name(mtype))
+                                    .size(10)
+                                    .font(bold_font())
+                                    .align_x(Alignment::Center),
+                            )
+                            .padding([3, 10])
+                            .on_press(Message::SubscriptionMissionToggled(mtype))
+                            .style(move |_theme, _status| {
+                                let base_bg = if active {
+                                    Color {
+                                        a: 0.2,
+                                        ..SOFT_GOLD
+                                    }
+                                } else {
+                                    Color {
+                                        a: 0.03,
+                                        ..Color::WHITE
+                                    }
+                                };
+                                let border_color = if active {
+                                    SOFT_GOLD
+                                } else {
+                                    Color {
+                                        a: 0.1,
+                                        ..Color::WHITE
+                                    }
+                                };
+                                button::Style {
+                                    background: Some(base_bg.into()),
+                                    text_color: if active { Color::WHITE } else { TEXT_DIM },
+                                    border: Border {
+                                        color: border_color,
+                                        width: 1.0,
+                                        radius: 20.0.into(),
+                                    },
+                                    ..Default::default()
+                                }
+                            })
+                            .into()
+                        }))
+                        .spacing(8)
+                        .wrap()
+                        .vertical_spacing(8)
+                    ]
+                    .align_y(Alignment::Start),
+                ])
+                .padding(15)
+                .style(|_theme| container::Style {
+                    border: Border {
+                        color: Color {
+                            a: 0.1,
+                            ..SOFT_GOLD
+                        },
+                        width: 1.0,
+                        radius: 4.0.into(),
                     },
-                    width: 1.0,
-                    radius: 4.0.into(),
-                },
-                ..Default::default()
-            }),
-        ])
-        .padding(Padding {
-            top: 0.0,
-            right: 20.0,
-            bottom: 10.0,
-            left: 20.0,
-        });
+                    ..Default::default()
+                }),
+            );
+        }
+
+        let filter_bar = container(filter_content)
+            .padding(Padding {
+                top: 0.0,
+                right: 20.0,
+                bottom: 10.0,
+                left: 20.0,
+            });
 
         let content: Element<Message> = match &self.fissures {
             DataState::Loading => container(text("ANALYZING...").size(18).color(SOFT_CYAN))

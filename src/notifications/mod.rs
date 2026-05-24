@@ -1,9 +1,22 @@
-use crate::fissures::{SubscriptionState, fetch_fissures, mission_type_name};
+use std::{
+    collections::HashSet,
+    sync::Arc,
+};
+
 use notify_rust::Notification;
-use std::collections::HashSet;
-use std::sync::Arc;
-use tokio::sync::watch;
-use tokio::time::{Duration, sleep};
+use tokio::{
+    sync::watch,
+    time::{
+        Duration,
+        sleep,
+    },
+};
+
+use crate::fissures::{
+    SubscriptionState,
+    fetch_fissures,
+    mission_type_name,
+};
 
 pub async fn background_notification_task(
     client: Arc<reqwest::Client>,

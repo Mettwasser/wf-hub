@@ -1,10 +1,10 @@
 mod fissures;
-mod ui;
 mod notifications;
+mod ui;
 
-use ui::VoidFissuresApp;
-use tokio::sync::watch;
 use fissures::SubscriptionState;
+use tokio::sync::watch;
+use ui::VoidFissuresApp;
 
 pub fn main() -> iced::Result {
     let file_appender = tracing_appender::rolling::never(".", "wf-hub.log");

@@ -1,10 +1,39 @@
-use crate::fissures::{SteelPathFilter, mission_type_name};
+use std::{
+    collections::HashSet,
+    path::Path,
+};
+
 use chrono::Utc;
-use iced::widget::{Space, button, column, container, row, svg, text};
-use iced::{Alignment, Border, Color, Element, Font, Length, Theme, font::Weight};
-use std::collections::HashSet;
-use std::path::Path;
-use worldstate_parser::{Faction, Fissure, FissureTier, MissionType};
+use iced::{
+    Alignment,
+    Border,
+    Color,
+    Element,
+    Font,
+    Length,
+    Theme,
+    font::Weight,
+    widget::{
+        Space,
+        button,
+        column,
+        container,
+        row,
+        svg,
+        text,
+    },
+};
+use worldstate_parser::{
+    Faction,
+    Fissure,
+    FissureTier,
+    MissionType,
+};
+
+use crate::fissures::{
+    SteelPathFilter,
+    mission_type_name,
+};
 
 // Visual constants restored from user manual changes
 pub const BG_DARK: Color = Color::from_rgb(0.1, 0.1, 0.12);

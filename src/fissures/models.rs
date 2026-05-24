@@ -1,8 +1,17 @@
-use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
-use std::fs;
-use std::path::Path;
-use worldstate_parser::{FissureTier, MissionType};
+use std::{
+    collections::HashSet,
+    fs,
+    path::Path,
+};
+
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use worldstate_parser::{
+    FissureTier,
+    MissionType,
+};
 
 #[derive(Debug, Clone)]
 pub enum DataState<T> {

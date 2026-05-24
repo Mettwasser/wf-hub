@@ -1,7 +1,16 @@
-use std::path::Path;
-use std::sync::Arc;
-use worldstate_parser::default_context_provider::{DefaultContextProvider, PathContext};
-use worldstate_parser::{Fissure, WorldState};
+use std::{
+    path::Path,
+    sync::Arc,
+};
+
+use worldstate_parser::{
+    Fissure,
+    WorldState,
+    default_context_provider::{
+        DefaultContextProvider,
+        PathContext,
+    },
+};
 
 pub async fn fetch_fissures(client: Arc<reqwest::Client>) -> Result<Vec<Fissure>, String> {
     let url = "https://api.warframe.com/cdn/worldState.php";

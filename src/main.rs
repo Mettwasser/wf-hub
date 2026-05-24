@@ -1,6 +1,6 @@
 mod fissures;
-mod notifications;
 mod ui;
+mod notifications;
 
 use ui::VoidFissuresApp;
 use tokio::sync::watch;

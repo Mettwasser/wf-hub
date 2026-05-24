@@ -1,7 +1,7 @@
-use std::sync::Arc;
 use std::path::Path;
-use worldstate_parser::{WorldState, Fissure};
+use std::sync::Arc;
 use worldstate_parser::default_context_provider::{DefaultContextProvider, PathContext};
+use worldstate_parser::{Fissure, WorldState};
 
 pub async fn fetch_fissures(client: Arc<reqwest::Client>) -> Result<Vec<Fissure>, String> {
     let url = "https://api.warframe.com/cdn/worldState.php";
@@ -26,6 +26,8 @@ pub async fn fetch_fissures(client: Arc<reqwest::Client>) -> Result<Vec<Fissure>
     let worldstate = WorldState::from_str(&raw_json, provider)
         .await
         .map_err(|e| format!("Parser Error: {:?}", e))?;
+
+    tracing::info!(?worldstate.fissures);
 
     Ok(worldstate.fissures)
 }

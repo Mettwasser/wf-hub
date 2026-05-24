@@ -1,6 +1,8 @@
-use std::collections::HashSet;
-use worldstate_parser::{FissureTier, MissionType};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::fs;
+use std::path::Path;
+use worldstate_parser::{FissureTier, MissionType};
 
 #[derive(Debug, Clone)]
 pub enum DataState<T> {
@@ -9,7 +11,7 @@ pub enum DataState<T> {
     Error(String),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum SteelPathFilter {
     Normal,
     SteelPath,
@@ -20,6 +22,52 @@ pub enum SteelPathFilter {
 pub struct SubscriptionState {
     pub tiers: HashSet<FissureTier>,
     pub mission_types: HashSet<MissionType>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AppConfig {
+    pub active_filters: HashSet<FissureTier>,
+    pub mission_filters: HashSet<MissionType>,
+    pub steel_path_filter: SteelPathFilter,
+    pub subscriptions: SubscriptionState,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            active_filters: [
+                FissureTier::Lith,
+                FissureTier::Meso,
+                FissureTier::Neo,
+                FissureTier::Axi,
+                FissureTier::Requiem,
+                FissureTier::Omnia,
+            ]
+            .into_iter()
+            .collect(),
+            mission_filters: HashSet::new(),
+            steel_path_filter: SteelPathFilter::Both,
+            subscriptions: SubscriptionState::default(),
+        }
+    }
+}
+
+impl AppConfig {
+    pub fn load() -> Self {
+        let path = Path::new("config.json");
+        if path.exists()
+            && let Ok(content) = fs::read_to_string(path)
+            && let Ok(config) = serde_json::from_str::<AppConfig>(&content)
+        {
+            return config;
+        }
+
+        Self::default()
+    }
+
+    pub fn save(&self) {
+        let _ = serde_json::to_string_pretty(self).map(|json| fs::write("config.json", json));
+    }
 }
 
 pub fn tier_to_int(tier: FissureTier) -> i32 {

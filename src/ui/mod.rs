@@ -41,11 +41,35 @@ pub enum Message {
 
 const REFRESH_INTERVAL_SECS: i64 = 300;
 
+const ALL_MISSION_TYPES: &[MissionType] = &[
+    MissionType::Capture,
+    MissionType::Defense,
+    MissionType::Exterminate,
+    MissionType::Rescue,
+    MissionType::Sabotage,
+    MissionType::Survival,
+    MissionType::Spy,
+    MissionType::Interception,
+    MissionType::MobileDefense,
+    MissionType::Excavation,
+    MissionType::Disruption,
+    MissionType::VoidFlood,
+    MissionType::VoidCascade,
+    MissionType::VoidArmaggedon,
+    MissionType::Alchemy,
+    MissionType::Hijack,
+    MissionType::HiveSabotage,
+    MissionType::InfestedSalvage,
+    MissionType::Assault,
+    MissionType::LegacyteHarvest,
+];
+
 impl VoidFissuresApp {
     pub fn new(
         subscription_tx: watch::Sender<SubscriptionState>,
         subscription_rx: watch::Receiver<SubscriptionState>,
     ) -> (Self, Task<Message>) {
+        let config = AppConfig::load();
         let client = Arc::new(reqwest::Client::new());
         let now = Utc::now();
 
@@ -58,25 +82,26 @@ impl VoidFissuresApp {
         let app = Self {
             client,
             fissures: DataState::Loading,
-            active_filters: [
-                FissureTier::Lith,
-                FissureTier::Meso,
-                FissureTier::Neo,
-                FissureTier::Axi,
-                FissureTier::Requiem,
-                FissureTier::Omnia,
-            ]
-            .into_iter()
-            .collect(),
-            mission_filters: HashSet::new(),
-            steel_path_filter: SteelPathFilter::Both,
+            active_filters: config.active_filters,
+            mission_filters: config.mission_filters,
+            steel_path_filter: config.steel_path_filter,
             last_tick: now,
             last_fetch: now,
-            subscriptions: SubscriptionState::default(),
+            subscriptions: config.subscriptions,
             subscription_tx,
         };
 
         (app, Task::done(Message::Startup))
+    }
+
+    fn save_config(&self) {
+        AppConfig {
+            active_filters: self.active_filters.clone(),
+            mission_filters: self.mission_filters.clone(),
+            steel_path_filter: self.steel_path_filter,
+            subscriptions: self.subscriptions.clone(),
+        }
+        .save();
     }
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
@@ -128,6 +153,7 @@ impl VoidFissuresApp {
                 } else {
                     self.active_filters.insert(tier);
                 }
+                self.save_config();
                 Task::none()
             }
             Message::MissionFilterToggled(mtype) => {
@@ -136,10 +162,12 @@ impl VoidFissuresApp {
                 } else {
                     self.mission_filters.insert(mtype);
                 }
+                self.save_config();
                 Task::none()
             }
             Message::SteelPathFilterChanged(filter) => {
                 self.steel_path_filter = filter;
+                self.save_config();
                 Task::none()
             }
             Message::SubscriptionTierToggled(tier) => {
@@ -149,6 +177,7 @@ impl VoidFissuresApp {
                     self.subscriptions.tiers.insert(tier);
                 }
                 let _ = self.subscription_tx.send(self.subscriptions.clone());
+                self.save_config();
                 Task::none()
             }
             Message::SubscriptionMissionToggled(mtype) => {
@@ -158,6 +187,7 @@ impl VoidFissuresApp {
                     self.subscriptions.mission_types.insert(mtype);
                 }
                 let _ = self.subscription_tx.send(self.subscriptions.clone());
+                self.save_config();
                 Task::none()
             }
         }
@@ -210,15 +240,7 @@ impl VoidFissuresApp {
         .align_y(Alignment::Center)
         .padding(20);
 
-        let mut available_mission_types = HashSet::new();
-        if let DataState::Loaded(fissures) = &self.fissures {
-            for f in fissures {
-                if let Some(node) = &f.node {
-                    available_mission_types.insert(node.mission_type);
-                }
-            }
-        }
-        let mut sorted_mission_types: Vec<_> = available_mission_types.into_iter().collect();
+        let mut sorted_mission_types: Vec<_> = ALL_MISSION_TYPES.to_vec();
         sorted_mission_types.sort_by_key(|m| mission_type_name(*m));
 
         let filter_bar = container(column![
@@ -293,23 +315,31 @@ impl VoidFissuresApp {
             row![
                 text("MISSIONS:").size(12).font(bold_font()).color(TEXT_DIM),
                 Space::new().width(Length::Fixed(10.0)),
-                row(sorted_mission_types.iter().map(|&mtype| {
-                    mission_filter_chip(mtype, &self.mission_filters, Message::MissionFilterToggled)
-                        .into()
-                }))
+                row(sorted_mission_types
+                    .iter()
+                    .map(|&mtype| mission_filter_chip(
+                        mtype,
+                        &self.mission_filters,
+                        Message::MissionFilterToggled
+                    )))
                 .spacing(8)
                 .wrap()
                 .vertical_spacing(8)
             ]
             .align_y(Alignment::Start),
             Space::new().height(Length::Fixed(20.0)),
-            container(
+            // Refined Subscription Block
+            container(column![
+                text("NOTIFY ME ON:")
+                    .size(12)
+                    .font(bold_font())
+                    .color(SOFT_GOLD),
+                Space::new().height(Length::Fixed(12.0)),
                 row![
-                    text("NOTIFICATIONS:")
-                        .size(12)
-                        .font(bold_font())
-                        .color(SOFT_GOLD),
-                    Space::new().width(Length::Fixed(10.0)),
+                    text("Tiers:")
+                        .size(11)
+                        .color(TEXT_DIM)
+                        .width(Length::Fixed(70.0)),
                     row![
                         filter_chip(
                             "LITH",
@@ -350,28 +380,13 @@ impl VoidFissuresApp {
                     ]
                     .spacing(10),
                 ]
-                .align_y(Alignment::Center)
-            )
-            .padding(10)
-            .style(|_theme| container::Style {
-                border: Border {
-                    color: Color {
-                        a: 0.1,
-                        ..SOFT_GOLD
-                    },
-                    width: 1.0,
-                    radius: 4.0.into()
-                },
-                ..Default::default()
-            }),
-            Space::new().height(Length::Fixed(8.0)),
-            container(
+                .align_y(Alignment::Center),
+                Space::new().height(Length::Fixed(12.0)),
                 row![
-                    text("ALERT ON:")
-                        .size(12)
-                        .font(bold_font())
-                        .color(SOFT_GOLD),
-                    Space::new().width(Length::Fixed(10.0)),
+                    text("Missions:")
+                        .size(11)
+                        .color(TEXT_DIM)
+                        .width(Length::Fixed(70.0)),
                     row(sorted_mission_types.into_iter().map(|mtype| {
                         let active = self.subscriptions.mission_types.contains(&mtype);
                         button(
@@ -419,9 +434,9 @@ impl VoidFissuresApp {
                     .wrap()
                     .vertical_spacing(8)
                 ]
-                .align_y(Alignment::Start)
-            )
-            .padding(10)
+                .align_y(Alignment::Start),
+            ])
+            .padding(15)
             .style(|_theme| container::Style {
                 border: Border {
                     color: Color {
@@ -429,7 +444,7 @@ impl VoidFissuresApp {
                         ..SOFT_GOLD
                     },
                     width: 1.0,
-                    radius: 4.0.into()
+                    radius: 4.0.into(),
                 },
                 ..Default::default()
             }),

@@ -1,9 +1,11 @@
 use std::{
     collections::HashSet,
+    io::Cursor,
     sync::Arc,
 };
 
 use notify_rust::Notification;
+use rodio::Decoder;
 use tokio::{
     sync::watch,
     time::{
@@ -18,9 +20,16 @@ use crate::fissures::{
     mission_type_name,
 };
 
+const FILE_CONTENTS: &[u8] = include_bytes!("../../sounds/notification.mp3");
+
+pub fn get_source() -> Decoder<Cursor<&'static [u8]>> {
+    Decoder::new_mp3(Cursor::new(FILE_CONTENTS)).unwrap()
+}
+
 pub async fn background_notification_task(
     client: Arc<reqwest::Client>,
     subscription_rx: watch::Receiver<SubscriptionState>,
+    player: Arc<rodio::Player>,
 ) {
     let mut notified_ids: HashSet<String> = HashSet::new();
 
@@ -68,7 +77,11 @@ pub async fn background_notification_task(
                             "{:?} {mtype} at {node_name} ({planet})",
                             fissure.tier
                         ))
+                        .appname("Void Fissures")
                         .show();
+
+                    let source = get_source();
+                    player.append(source);
 
                     notified_ids.insert(fissure.id.clone());
                 }

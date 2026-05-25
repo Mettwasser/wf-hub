@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    path::Path,
-};
+use std::collections::HashSet;
 
 use chrono::Utc;
 use iced::{
@@ -30,9 +27,12 @@ use worldstate_parser::{
     MissionType,
 };
 
-use crate::fissures::{
-    SteelPathFilter,
-    mission_type_name,
+use crate::{
+    fissures::{
+        SteelPathFilter,
+        mission_type_name,
+    },
+    ui::images::IMAGE_DIR,
 };
 
 // Visual constants restored from user manual changes
@@ -242,12 +242,12 @@ pub fn mission_filter_chip<'a, Message: Clone + 'a>(
 }
 
 pub fn faction_icon<'a, Message: Clone + 'a>(faction: Faction) -> Element<'a, Message> {
-    let name = format!("{:?}", faction).to_lowercase();
-    let svg_path = format!("images/{}.svg", name);
+    let name = format!("{faction:?}").to_lowercase();
+    let svg_path = format!("{name}.svg");
 
-    if Path::new(&svg_path).exists() {
+    if let Some(content) = IMAGE_DIR.get_file(svg_path).map(|file| file.contents()) {
         container(
-            svg(svg::Handle::from_path(svg_path))
+            svg(svg::Handle::from_memory(content))
                 .width(Length::Fixed(50.0))
                 .height(Length::Fixed(50.0))
                 .style(|_theme, _status| svg::Style {

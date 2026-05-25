@@ -5,3 +5,5 @@
 /assets/
 /wf-hub.log
 /config.json
+/dist
+/dist-windows

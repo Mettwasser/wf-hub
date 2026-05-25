@@ -1,8 +1,10 @@
 pub mod components;
+pub mod images;
 
 use std::{
     collections::HashSet,
     sync::Arc,
+    time::Duration,
 };
 
 use chrono::Utc;
@@ -38,7 +40,10 @@ use worldstate_parser::{
 use self::components::*;
 use crate::{
     fissures::*,
-    notifications::background_notification_task,
+    notifications::{
+        background_notification_task,
+        get_source,
+    },
 };
 
 pub struct VoidFissuresApp {
@@ -52,6 +57,7 @@ pub struct VoidFissuresApp {
     pub subscriptions: SubscriptionState,
     pub subscription_tx: watch::Sender<SubscriptionState>,
     pub show_subscriptions: bool,
+    pub audio_player: Arc<rodio::Player>,
 }
 
 #[derive(Debug, Clone)]
@@ -98,6 +104,7 @@ impl VoidFissuresApp {
     pub fn new(
         subscription_tx: watch::Sender<SubscriptionState>,
         subscription_rx: watch::Receiver<SubscriptionState>,
+        player: Arc<rodio::Player>,
     ) -> (Self, Task<Message>) {
         let config = AppConfig::load();
         let client = Arc::new(reqwest::Client::new());
@@ -107,6 +114,7 @@ impl VoidFissuresApp {
         tokio::spawn(background_notification_task(
             client.clone(),
             subscription_rx,
+            player.clone(),
         ));
 
         let app = Self {
@@ -120,6 +128,7 @@ impl VoidFissuresApp {
             subscriptions: config.subscriptions,
             subscription_tx,
             show_subscriptions: false,
+            audio_player: player,
         };
 
         (app, Task::done(Message::Startup))
@@ -142,7 +151,7 @@ impl VoidFissuresApp {
                 Task::perform(
                     async move {
                         let _ = worldstate_parser::default_data_fetcher::fetch_all(
-                            CacheStrategy::Basic,
+                            CacheStrategy::Duration(Duration::from_hours(72)),
                         )
                         .await;
                         fetch_fissures(client).await
@@ -225,15 +234,21 @@ impl VoidFissuresApp {
                 self.show_subscriptions = !self.show_subscriptions;
                 Task::none()
             }
-            Message::TestAlert => Task::perform(
-                async move {
-                    let _ = notify_rust::Notification::new()
-                        .summary("Warframe Hub")
-                        .body("This is a test alert. Your notifications are working correctly!")
-                        .show();
-                },
-                |_| Message::Tick(Utc::now()),
-            ),
+            Message::TestAlert => {
+                let player = self.audio_player.clone();
+
+                Task::perform(
+                    async move {
+                        let _ = notify_rust::Notification::new()
+                            .summary("Warframe Hub")
+                            .body("This is a test alert. Your notifications are working correctly!")
+                            .show();
+
+                        player.append(get_source());
+                    },
+                    |_| Message::Tick(Utc::now()),
+                )
+            }
         }
     }
 

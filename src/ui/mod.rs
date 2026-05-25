@@ -28,6 +28,10 @@ use iced::{
         text,
     },
 };
+use rodio::{
+    DeviceSinkBuilder,
+    Player,
+};
 use tokio::sync::{
     Notify,
     watch,
@@ -40,8 +44,12 @@ use worldstate_parser::{
 
 use self::components::*;
 use crate::{
+    fissure_producer::fissure_event_producer,
     fissures::*,
-    notifications::get_source,
+    notifications::{
+        background_notification_task,
+        get_source,
+    },
 };
 
 pub struct VoidFissuresApp {
@@ -55,7 +63,6 @@ pub struct VoidFissuresApp {
     pub show_subscriptions: bool,
     pub audio_player: Arc<rodio::Player>,
     pub refresh_notifier: Arc<Notify>,
-    pub fissure_rx: watch::Receiver<DataState<Vec<Fissure>>>,
 }
 
 #[derive(Debug, Clone)]
@@ -98,14 +105,21 @@ const ALL_MISSION_TYPES: &[MissionType] = &[
 ];
 
 impl VoidFissuresApp {
-    pub fn new(
-        subscription_tx: watch::Sender<SubscriptionState>,
-        player: Arc<rodio::Player>,
-        refresh_notifier: Arc<Notify>,
-        fissure_rx: watch::Receiver<DataState<Vec<Fissure>>>,
-    ) -> (Self, Task<Message>) {
+    pub fn init() -> (Self, Task<Message>) {
         let config = AppConfig::load();
         let now = Utc::now();
+
+        let (subscription_tx, subscription_rx) = watch::channel(SubscriptionState::default());
+        let (fissure_tx, fissure_rx) = watch::channel(DataState::<Vec<Fissure>>::Loading);
+        let notify = Arc::new(Notify::new());
+
+        // SAFETY: This should have a static lifetime anyway. So it's cleaned up when the app
+        // closes. why? When the sink drops, the audio does not play via the player anymore.
+        // So we need to prevent the handle from being dropped when it goes out of scope
+        let handle = std::mem::ManuallyDrop::new(
+            DeviceSinkBuilder::open_default_sink().expect("open default audio stream"),
+        );
+        let player = Arc::new(Player::connect_new(handle.mixer()));
 
         let app = Self {
             fissures: DataState::Loading,
@@ -116,13 +130,39 @@ impl VoidFissuresApp {
             subscriptions: config.subscriptions,
             subscription_tx,
             show_subscriptions: false,
-            audio_player: player,
-            refresh_notifier,
-            fissure_rx,
+            audio_player: player.clone(),
+            refresh_notifier: notify.clone(),
         };
 
-        let task = app.listen_for_fissures();
-        (app, task)
+        let fissure_stream = {
+            let rx = fissure_rx.clone();
+            iced::futures::stream::unfold(rx, |mut rx| async move {
+                if rx.changed().await.is_ok() {
+                    let data = rx.borrow().clone();
+                    Some((Message::FissuresLoaded(data), rx))
+                } else {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    Some((
+                        Message::FissuresLoaded(DataState::Error("Channel closed".to_owned())),
+                        rx,
+                    ))
+                }
+            })
+        };
+
+        (
+            app,
+            Task::batch([
+                Task::stream(fissure_stream),
+                Task::future(background_notification_task(
+                    subscription_rx,
+                    player.clone(),
+                    fissure_rx.clone(),
+                ))
+                .discard(),
+                Task::future(fissure_event_producer(fissure_tx, notify.clone())).discard(),
+            ]),
+        )
     }
 
     fn save_config(&self) {
@@ -161,7 +201,7 @@ impl VoidFissuresApp {
 
                 self.fissures = data;
 
-                self.listen_for_fissures()
+                Task::none()
             }
             Message::FilterToggled(tier) => {
                 if self.active_filters.contains(&tier) {
@@ -211,44 +251,22 @@ impl VoidFissuresApp {
                 Task::none()
             }
             Message::TestAlert => {
-                let player = self.audio_player.clone();
+                let _ = notify_rust::Notification::new()
+                    .summary("Warframe Hub")
+                    .body("This is a test alert. Your notifications are working correctly!")
+                    .show();
 
-                Task::perform(
-                    async move {
-                        let _ = notify_rust::Notification::new()
-                            .summary("Warframe Hub")
-                            .body("This is a test alert. Your notifications are working correctly!")
-                            .show();
+                self.audio_player.append(get_source());
 
-                        player.append(get_source());
-                    },
-                    |_| Message::Tick,
-                )
+                Task::none()
             }
         }
     }
 
-    pub fn subscription(&self) -> Subscription<Message> {
+    pub fn tick_subscription(&self) -> Subscription<Message> {
         iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick)
     }
 
-    fn listen_for_fissures(&self) -> Task<Message> {
-        let mut rx = self.fissure_rx.clone();
-
-        Task::perform(
-            async move {
-                if rx.changed().await.is_ok() {
-                    Some(rx.borrow().clone())
-                } else {
-                    None
-                }
-            },
-            |result| match result {
-                Some(data) => Message::FissuresLoaded(data),
-                None => Message::FissuresLoaded(DataState::Error("Channel closed".to_owned())),
-            },
-        )
-    }
     pub fn theme(&self) -> Theme {
         Theme::Dark
     }

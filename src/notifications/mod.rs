@@ -30,6 +30,7 @@ pub async fn background_notification_task(
     mut fissures_rx: watch::Receiver<DataState<Vec<Fissure>>>,
 ) {
     let mut notified_ids: HashSet<String> = HashSet::new();
+    let mut should_notify = false;
 
     loop {
         let subs = subscription_rx.borrow().clone();
@@ -78,11 +79,16 @@ pub async fn background_notification_task(
                         .appname("Void Fissures")
                         .show();
 
-                    let source = get_source();
-                    player.append(source);
+                    should_notify = true;
 
                     notified_ids.insert(fissure.id.clone());
                 }
+            }
+
+            if should_notify {
+                let source = get_source();
+                player.append(source);
+                should_notify = false;
             }
         }
 

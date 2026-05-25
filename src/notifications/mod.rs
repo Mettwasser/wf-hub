@@ -7,16 +7,14 @@ use std::{
 use notify_rust::Notification;
 use rodio::Decoder;
 use tokio::{
+    self,
     sync::watch,
-    time::{
-        Duration,
-        sleep,
-    },
 };
+use worldstate_parser::Fissure;
 
 use crate::fissures::{
+    DataState,
     SubscriptionState,
-    fetch_fissures,
     mission_type_name,
 };
 
@@ -27,9 +25,9 @@ pub fn get_source() -> Decoder<Cursor<&'static [u8]>> {
 }
 
 pub async fn background_notification_task(
-    client: Arc<reqwest::Client>,
     subscription_rx: watch::Receiver<SubscriptionState>,
     player: Arc<rodio::Player>,
+    mut fissures_rx: watch::Receiver<DataState<Vec<Fissure>>>,
 ) {
     let mut notified_ids: HashSet<String> = HashSet::new();
 
@@ -37,7 +35,7 @@ pub async fn background_notification_task(
         let subs = subscription_rx.borrow().clone();
 
         if (!subs.tiers.is_empty() || !subs.mission_types.is_empty())
-            && let Ok(fissures) = fetch_fissures(client.clone()).await
+            && let DataState::Loaded(ref fissures) = *fissures_rx.borrow()
         {
             for fissure in fissures {
                 let matches_tier = subs.tiers.contains(&fissure.tier);
@@ -88,6 +86,6 @@ pub async fn background_notification_task(
             }
         }
 
-        sleep(Duration::from_mins(5)).await; // Poll every 5 minutes
+        let _ = fissures_rx.changed().await;
     }
 }

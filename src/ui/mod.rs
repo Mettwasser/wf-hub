@@ -4,7 +4,6 @@ pub mod images;
 use std::{
     collections::HashSet,
     sync::Arc,
-    time::Duration,
 };
 
 use chrono::Utc;
@@ -29,43 +28,41 @@ use iced::{
         text,
     },
 };
-use tokio::sync::watch;
+use tokio::sync::{
+    Notify,
+    watch,
+};
 use worldstate_parser::{
     Fissure,
     FissureTier,
     MissionType,
-    default_data_fetcher::CacheStrategy,
 };
 
 use self::components::*;
 use crate::{
     fissures::*,
-    notifications::{
-        background_notification_task,
-        get_source,
-    },
+    notifications::get_source,
 };
 
 pub struct VoidFissuresApp {
-    pub client: Arc<reqwest::Client>,
     pub fissures: DataState<Vec<Fissure>>,
     pub active_filters: HashSet<FissureTier>,
     pub mission_filters: HashSet<MissionType>,
     pub steel_path_filter: SteelPathFilter,
-    pub last_tick: chrono::DateTime<Utc>,
     pub last_fetch: chrono::DateTime<Utc>,
     pub subscriptions: SubscriptionState,
     pub subscription_tx: watch::Sender<SubscriptionState>,
     pub show_subscriptions: bool,
     pub audio_player: Arc<rodio::Player>,
+    pub refresh_notifier: Arc<Notify>,
+    pub fissure_rx: watch::Receiver<DataState<Vec<Fissure>>>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    Startup,
     Refresh,
-    Tick(chrono::DateTime<Utc>),
-    FissuresLoaded(Result<Vec<Fissure>, String>),
+    Tick,
+    FissuresLoaded(DataState<Vec<Fissure>>),
     FilterToggled(FissureTier),
     MissionFilterToggled(MissionType),
     SteelPathFilterChanged(SteelPathFilter),
@@ -103,35 +100,29 @@ const ALL_MISSION_TYPES: &[MissionType] = &[
 impl VoidFissuresApp {
     pub fn new(
         subscription_tx: watch::Sender<SubscriptionState>,
-        subscription_rx: watch::Receiver<SubscriptionState>,
         player: Arc<rodio::Player>,
+        refresh_notifier: Arc<Notify>,
+        fissure_rx: watch::Receiver<DataState<Vec<Fissure>>>,
     ) -> (Self, Task<Message>) {
         let config = AppConfig::load();
-        let client = Arc::new(reqwest::Client::new());
         let now = Utc::now();
 
-        // Spawn background notification task
-        tokio::spawn(background_notification_task(
-            client.clone(),
-            subscription_rx,
-            player.clone(),
-        ));
-
         let app = Self {
-            client,
             fissures: DataState::Loading,
             active_filters: config.active_filters,
             mission_filters: config.mission_filters,
             steel_path_filter: config.steel_path_filter,
-            last_tick: now,
             last_fetch: now,
             subscriptions: config.subscriptions,
             subscription_tx,
             show_subscriptions: false,
             audio_player: player,
+            refresh_notifier,
+            fissure_rx,
         };
 
-        (app, Task::done(Message::Startup))
+        let task = app.listen_for_fissures();
+        (app, task)
     }
 
     fn save_config(&self) {
@@ -146,46 +137,31 @@ impl VoidFissuresApp {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::Startup => {
-                let client = self.client.clone();
-                Task::perform(
-                    async move {
-                        let _ = worldstate_parser::default_data_fetcher::fetch_all(
-                            CacheStrategy::Duration(Duration::from_hours(72)),
-                        )
-                        .await;
-                        fetch_fissures(client).await
-                    },
-                    Message::FissuresLoaded,
-                )
-            }
             Message::Refresh => {
                 self.fissures = DataState::Loading;
-                Task::perform(fetch_fissures(self.client.clone()), Message::FissuresLoaded)
+                self.refresh_notifier.notify_one();
+
+                Task::none()
             }
-            Message::Tick(now) => {
-                self.last_tick = now;
+            Message::Tick => {
+                let now = Utc::now();
+
                 if let DataState::Loaded(fissures) = &mut self.fissures {
                     fissures.retain(|f| f.expiry > now);
                 }
-                if (now - self.last_fetch).num_seconds() >= REFRESH_INTERVAL_SECS {
-                    return Task::perform(
-                        fetch_fissures(self.client.clone()),
-                        Message::FissuresLoaded,
-                    );
-                }
+
                 Task::none()
             }
-            Message::FissuresLoaded(result) => {
+            Message::FissuresLoaded(mut data) => {
                 self.last_fetch = Utc::now();
-                match result {
-                    Ok(mut data) => {
-                        data.sort_by_key(|f| tier_to_int(f.tier));
-                        self.fissures = DataState::Loaded(data);
-                    }
-                    Err(e) => self.fissures = DataState::Error(e),
+
+                if let DataState::Loaded(fissures) = &mut data {
+                    fissures.sort_by_key(|f| tier_to_int(f.tier));
                 }
-                Task::none()
+
+                self.fissures = data;
+
+                self.listen_for_fissures()
             }
             Message::FilterToggled(tier) => {
                 if self.active_filters.contains(&tier) {
@@ -246,23 +222,40 @@ impl VoidFissuresApp {
 
                         player.append(get_source());
                     },
-                    |_| Message::Tick(Utc::now()),
+                    |_| Message::Tick,
                 )
             }
         }
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick(Utc::now()))
+        iced::time::every(std::time::Duration::from_secs(1)).map(|_| Message::Tick)
     }
 
+    fn listen_for_fissures(&self) -> Task<Message> {
+        let mut rx = self.fissure_rx.clone();
+
+        Task::perform(
+            async move {
+                if rx.changed().await.is_ok() {
+                    Some(rx.borrow().clone())
+                } else {
+                    None
+                }
+            },
+            |result| match result {
+                Some(data) => Message::FissuresLoaded(data),
+                None => Message::FissuresLoaded(DataState::Error("Channel closed".to_owned())),
+            },
+        )
+    }
     pub fn theme(&self) -> Theme {
         Theme::Dark
     }
 
     pub fn view(&self) -> Element<'_, Message> {
         let next_refresh_secs =
-            REFRESH_INTERVAL_SECS - (self.last_tick - self.last_fetch).num_seconds();
+            REFRESH_INTERVAL_SECS - (Utc::now() - self.last_fetch).num_seconds();
         let next_refresh_secs = next_refresh_secs.max(0);
         let countdown_text = format!(
             "{:02}:{:02}",

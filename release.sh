@@ -12,7 +12,7 @@ fi
 
 VERSION=$1
 
-echo "🔨 Building targets for version $VERSION..."
+echo "🔨 Building targets for version v$VERSION..."
 
 # 1. Build the Windows target
 echo "--> Building Windows target..."
@@ -22,12 +22,12 @@ cargo build --release --target x86_64-pc-windows-gnu
 echo "--> Building native Linux target..."
 cargo build --release
 
-echo "🚀 Creating GitHub Release $VERSION and uploading assets..."
+echo "🚀 Creating GitHub Release v$VERSION and uploading assets..."
 
 # 3. Create the release using the '#' syntax to rename assets on the fly
-gh release create "$VERSION" \
+gh release create "v$VERSION" \
   "./target/release/wf-hub#wf-hub-linux" \
   "./target/x86_64-pc-windows-gnu/release/wf-hub.exe#wf-hub-windows.exe" \
   --generate-notes
 
-echo "🎉 Release $VERSION successfully created!"
+echo "🎉 Release v$VERSION successfully created!"

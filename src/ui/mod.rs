@@ -5,6 +5,7 @@ pub mod tab;
 use std::{
     collections::HashSet,
     sync::Arc,
+    time::Duration,
 };
 
 use chrono::Utc;
@@ -18,6 +19,7 @@ use iced::{
     Task,
     Theme,
     padding,
+    task,
     widget::{
         Space,
         button,
@@ -44,7 +46,13 @@ use worldstate_parser::{
 use self::components::*;
 use crate::{
     fissure_producer::fissure_event_producer,
-    fissures::*,
+    models::{
+        AppConfig,
+        DataState,
+        SteelPathFilter,
+        SubscriptionState,
+        tier_to_int,
+    },
     notifications::{
         background_notification_task,
         get_source,
@@ -63,6 +71,9 @@ pub struct VoidFissuresApp {
     pub audio_player: Arc<rodio::Player>,
     pub refresh_notifier: Arc<Notify>,
     pub current_tab: usize,
+    pub volume: f32,
+
+    pub volume_debouncer: Option<task::Handle>,
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +89,11 @@ pub enum Message {
     ToggleSubscriptions,
     TestAlert,
     SwitchTab(usize),
+
+    // Volume
+    ChangeVolume(f32),
+    CommitVolumeChange,
+    TestVolume,
 }
 
 const REFRESH_INTERVAL_SECS: i64 = 300;
@@ -98,11 +114,8 @@ const ALL_MISSION_TYPES: &[MissionType] = &[
     MissionType::VoidCascade,
     MissionType::VoidArmaggedon,
     MissionType::Alchemy,
-    MissionType::Hijack,
     MissionType::HiveSabotage,
-    MissionType::InfestedSalvage,
     MissionType::Assault,
-    MissionType::LegacyteHarvest,
 ];
 
 impl VoidFissuresApp {
@@ -121,6 +134,7 @@ impl VoidFissuresApp {
             DeviceSinkBuilder::open_default_sink().expect("open default audio stream"),
         );
         let player = Arc::new(Player::connect_new(handle.mixer()));
+        player.set_volume(config.volume);
 
         let app = Self {
             fissures: DataState::Loading,
@@ -134,11 +148,13 @@ impl VoidFissuresApp {
             audio_player: player.clone(),
             refresh_notifier: notify.clone(),
             current_tab: 0,
+            volume: config.volume,
+            volume_debouncer: None,
         };
 
         let fissure_stream = {
             let rx = fissure_rx.clone();
-            iced::futures::stream::unfold(rx, |mut rx| async move {
+            iced::futures::stream::unfold(rx, async move |mut rx| {
                 if rx.changed().await.is_ok() {
                     let data = rx.borrow().clone();
                     Some((Message::FissuresLoaded(data), rx))
@@ -173,6 +189,7 @@ impl VoidFissuresApp {
             mission_filters: self.mission_filters.clone(),
             steel_path_filter: self.steel_path_filter,
             subscriptions: self.subscriptions.clone(),
+            volume: self.volume,
         }
         .save();
     }
@@ -182,8 +199,6 @@ impl VoidFissuresApp {
             Message::Refresh => {
                 self.fissures = DataState::Loading;
                 self.refresh_notifier.notify_one();
-
-                Task::none()
             }
             Message::Tick => {
                 let now = Utc::now();
@@ -191,8 +206,6 @@ impl VoidFissuresApp {
                 if let DataState::Loaded(fissures) = &mut self.fissures {
                     fissures.retain(|f| f.expiry > now);
                 }
-
-                Task::none()
             }
             Message::FissuresLoaded(mut data) => {
                 self.last_fetch = Utc::now();
@@ -202,8 +215,6 @@ impl VoidFissuresApp {
                 }
 
                 self.fissures = data;
-
-                Task::none()
             }
             Message::FilterToggled(tier) => {
                 if self.active_filters.contains(&tier) {
@@ -212,7 +223,6 @@ impl VoidFissuresApp {
                     self.active_filters.insert(tier);
                 }
                 self.save_config();
-                Task::none()
             }
             Message::MissionFilterToggled(mtype) => {
                 if self.mission_filters.contains(&mtype) {
@@ -221,12 +231,10 @@ impl VoidFissuresApp {
                     self.mission_filters.insert(mtype);
                 }
                 self.save_config();
-                Task::none()
             }
             Message::SteelPathFilterChanged(filter) => {
                 self.steel_path_filter = filter;
                 self.save_config();
-                Task::none()
             }
             Message::SubscriptionTierToggled(tier) => {
                 if self.subscriptions.tiers.contains(&tier) {
@@ -236,7 +244,6 @@ impl VoidFissuresApp {
                 }
                 let _ = self.subscription_tx.send(self.subscriptions.clone());
                 self.save_config();
-                Task::none()
             }
             Message::SubscriptionMissionToggled(mtype) => {
                 if self.subscriptions.mission_types.contains(&mtype) {
@@ -246,11 +253,9 @@ impl VoidFissuresApp {
                 }
                 let _ = self.subscription_tx.send(self.subscriptions.clone());
                 self.save_config();
-                Task::none()
             }
             Message::ToggleSubscriptions => {
                 self.show_subscriptions = !self.show_subscriptions;
-                Task::none()
             }
             Message::TestAlert => {
                 let _ = notify_rust::Notification::new()
@@ -259,14 +264,34 @@ impl VoidFissuresApp {
                     .show();
 
                 self.audio_player.append(get_source());
-
-                Task::none()
             }
             Message::SwitchTab(new_tab_idx) => {
                 self.current_tab = new_tab_idx;
-                Task::none()
             }
-        }
+            Message::TestVolume => {
+                self.audio_player.append(get_source());
+            }
+            Message::ChangeVolume(volume) => {
+                self.volume = volume;
+                self.audio_player.set_volume(volume);
+
+                let (task, handle) =
+                    Task::perform(tokio::time::sleep(Duration::from_millis(300)), |_| {
+                        Message::CommitVolumeChange
+                    })
+                    .abortable();
+
+                self.volume_debouncer = Some(handle.abort_on_drop());
+
+                return task;
+            }
+            Message::CommitVolumeChange => {
+                self.save_config();
+                self.volume_debouncer = None;
+            }
+        };
+
+        Task::none()
     }
 
     pub fn tick_subscription(&self) -> Subscription<Message> {

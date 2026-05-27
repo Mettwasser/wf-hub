@@ -8,8 +8,9 @@ use iced::{
     Element,
     Font,
     Length,
-    Padding,
     Theme,
+    Vector,
+    border,
     font::Weight,
     padding,
     widget::{
@@ -21,6 +22,8 @@ use iced::{
         container,
         row,
         scrollable,
+        slider,
+        space,
         svg,
         text,
     },
@@ -33,7 +36,7 @@ use worldstate_parser::{
 };
 
 use crate::{
-    fissures::{
+    models::{
         DataState,
         SteelPathFilter,
         mission_type_name,
@@ -54,6 +57,32 @@ pub const SOFT_GOLD: Color = Color::from_rgb(0.7, 0.55, 0.3);
 pub const SOFT_CYAN: Color = Color::from_rgb(0.3, 0.6, 0.7);
 pub const TEXT_DIM: Color = Color::from_rgb(0.6, 0.6, 0.7);
 pub const ERROR_RED: Color = Color::from_rgb(0.7, 0.3, 0.3);
+
+const BUTTON_STYLE: button::Style = button::Style {
+    background: Some(iced::Background::Color(Color::TRANSPARENT)),
+    text_color: SOFT_GOLD,
+    border: Border {
+        color: SOFT_GOLD,
+        width: 1.0,
+        radius: border::Radius {
+            top_left: 0.0,
+            top_right: 0.0,
+            bottom_right: 0.0,
+            bottom_left: 0.0,
+        },
+    },
+    snap: false,
+    shadow: iced::Shadow {
+        color: Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 0.0,
+        },
+        offset: Vector::ZERO,
+        blur_radius: 0.0,
+    },
+};
 
 pub fn bold_font() -> Font {
     Font {
@@ -448,16 +477,7 @@ pub fn format_eta(expiry: chrono::DateTime<Utc>) -> String {
 }
 
 fn tab_button(title: &str) -> Button<'_, Message> {
-    button(text(title).size(14).font(bold_font())).style(|_, _| button::Style {
-        background: Some(Color::TRANSPARENT.into()),
-        text_color: SOFT_GOLD,
-        border: Border {
-            color: SOFT_GOLD,
-            width: 1.0,
-            radius: 0.0.into(),
-        },
-        ..Default::default()
-    })
+    button(text(title).size(14).font(bold_font())).style(|_, _| BUTTON_STYLE)
 }
 
 pub fn tab_buttons<'a>(current_idx: usize) -> Row<'a, Message> {
@@ -468,12 +488,7 @@ pub fn tab_buttons<'a>(current_idx: usize) -> Row<'a, Message> {
         |_, _| button::Style {
             background: Some(SOFT_GOLD.into()),
             text_color: Color::BLACK,
-            border: Border {
-                color: SOFT_GOLD,
-                width: 1.0,
-                radius: 0.0.into(),
-            },
-            ..Default::default()
+            ..BUTTON_STYLE
         },
     )
 }
@@ -782,5 +797,37 @@ pub fn render_home(app: &VoidFissuresApp) -> Element<'_, Message> {
 }
 
 pub fn render_settings(app: &VoidFissuresApp) -> Element<'_, Message> {
-    text("LOLOLOO").into()
+    let slider = column![
+        text("Volume"),
+        row![
+            row![
+                slider(
+                    0.0..=100.0,
+                    app.volume * 100.0,
+                    |val| Message::ChangeVolume(val / 100.0)
+                ),
+                text(format!("{:.0}%", app.volume * 100.0)),
+                space::horizontal().width(8),
+                button("Test")
+                    .on_press(Message::TestVolume)
+                    .style(|_, _| button::Style {
+                        background: Some(Color::TRANSPARENT.into()),
+                        text_color: SOFT_CYAN,
+                        border: Border {
+                            color: SOFT_CYAN,
+                            width: 1.0,
+                            radius: 2.0.into(),
+                        },
+                        ..Default::default()
+                    })
+            ]
+            .spacing(4)
+            .width(Length::FillPortion(2))
+            .align_y(Alignment::Center),
+            space::horizontal().width(Length::FillPortion(2))
+        ]
+    ]
+    .spacing(4);
+
+    column![slider,].into()
 }

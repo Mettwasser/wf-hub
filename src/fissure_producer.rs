@@ -12,9 +12,9 @@ use worldstate_parser::{
     default_data_fetcher::CacheStrategy,
 };
 
-use crate::fissures::{
-    DataState,
-    fetch_fissures,
+use crate::{
+    fissures::fetch_fissures,
+    models::DataState,
 };
 
 pub async fn fissure_event_producer(

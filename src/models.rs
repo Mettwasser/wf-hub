@@ -39,6 +39,7 @@ pub struct AppConfig {
     pub mission_filters: HashSet<MissionType>,
     pub steel_path_filter: SteelPathFilter,
     pub subscriptions: SubscriptionState,
+    pub volume: f32,
 }
 
 impl Default for AppConfig {
@@ -57,6 +58,7 @@ impl Default for AppConfig {
             mission_filters: HashSet::new(),
             steel_path_filter: SteelPathFilter::Both,
             subscriptions: SubscriptionState::default(),
+            volume: 1.0,
         }
     }
 }

@@ -1,5 +1,6 @@
 pub mod fissure_producer;
 mod fissures;
+pub mod models;
 mod notifications;
 mod ui;
 

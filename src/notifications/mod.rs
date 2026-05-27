@@ -12,7 +12,7 @@ use tokio::{
 };
 use worldstate_parser::Fissure;
 
-use crate::fissures::{
+use crate::models::{
     DataState,
     SubscriptionState,
     mission_type_name,

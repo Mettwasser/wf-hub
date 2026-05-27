@@ -84,8 +84,11 @@ pub enum Message {
     FilterToggled(FissureTier),
     MissionFilterToggled(MissionType),
     SteelPathFilterChanged(SteelPathFilter),
-    SubscriptionTierToggled(FissureTier),
-    SubscriptionMissionToggled(MissionType),
+
+    // is_steel_path, T
+    SubscriptionTierToggled(bool, FissureTier),
+    SubscriptionMissionToggled(bool, MissionType),
+
     ToggleSubscriptions,
     TestAlert,
     SwitchTab(usize),
@@ -236,20 +239,32 @@ impl VoidFissuresApp {
                 self.steel_path_filter = filter;
                 self.save_config();
             }
-            Message::SubscriptionTierToggled(tier) => {
-                if self.subscriptions.tiers.contains(&tier) {
-                    self.subscriptions.tiers.remove(&tier);
+            Message::SubscriptionTierToggled(is_steel_path, tier) => {
+                let sub = if is_steel_path {
+                    &mut self.subscriptions.steel_path
                 } else {
-                    self.subscriptions.tiers.insert(tier);
+                    &mut self.subscriptions.normal
+                };
+
+                if sub.tiers.contains(&tier) {
+                    sub.tiers.remove(&tier);
+                } else {
+                    sub.tiers.insert(tier);
                 }
                 let _ = self.subscription_tx.send(self.subscriptions.clone());
                 self.save_config();
             }
-            Message::SubscriptionMissionToggled(mtype) => {
-                if self.subscriptions.mission_types.contains(&mtype) {
-                    self.subscriptions.mission_types.remove(&mtype);
+            Message::SubscriptionMissionToggled(is_steel_path, mtype) => {
+                let sub = if is_steel_path {
+                    &mut self.subscriptions.steel_path
                 } else {
-                    self.subscriptions.mission_types.insert(mtype);
+                    &mut self.subscriptions.normal
+                };
+
+                if sub.mission_types.contains(&mtype) {
+                    sub.mission_types.remove(&mtype);
+                } else {
+                    sub.mission_types.insert(mtype);
                 }
                 let _ = self.subscription_tx.send(self.subscriptions.clone());
                 self.save_config();

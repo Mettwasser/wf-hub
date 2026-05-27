@@ -30,40 +30,43 @@ pub async fn background_notification_task(
     mut fissures_rx: watch::Receiver<DataState<Vec<Fissure>>>,
 ) {
     let mut notified_ids: HashSet<String> = HashSet::new();
-    let mut should_notify = false;
+    let mut should_play_sound = false;
 
     loop {
         let subs = subscription_rx.borrow().clone();
 
-        if (!subs.tiers.is_empty() || !subs.mission_types.is_empty())
-            && let DataState::Loaded(ref fissures) = *fissures_rx.borrow()
-        {
+        if let DataState::Loaded(ref fissures) = *fissures_rx.borrow() {
             for fissure in fissures {
-                let matches_tier = subs.tiers.contains(&fissure.tier);
-                let matches_mission = fissure
-                    .node
-                    .as_ref()
-                    .map(|n| subs.mission_types.contains(&n.mission_type))
-                    .unwrap_or(false);
-
-                let is_match = match (subs.tiers.is_empty(), subs.mission_types.is_empty()) {
-                    (false, false) => matches_tier && matches_mission,
-                    (false, true) => matches_tier,
-                    (true, false) => matches_mission,
-                    (true, true) => false,
+                let sub = if fissure.is_steel_path {
+                    &subs.steel_path
+                } else {
+                    &subs.normal
                 };
 
-                if is_match && !notified_ids.contains(&fissure.id) {
+                if sub.tiers.is_empty() && sub.mission_types.is_empty() {
+                    continue;
+                }
+
+                let matches_tier = sub.tiers.is_empty() || sub.tiers.contains(&fissure.tier);
+                let matches_mission = sub.mission_types.is_empty()
+                    || fissure
+                        .node
+                        .as_ref()
+                        .is_some_and(|n| sub.mission_types.contains(&n.mission_type));
+
+                if matches_tier && matches_mission && !notified_ids.contains(&fissure.id) {
                     let node_name = fissure
                         .node
                         .as_ref()
                         .map(|n| n.name.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
+
                     let mtype = fissure
                         .node
                         .as_ref()
                         .map(|n| mission_type_name(n.mission_type))
                         .unwrap_or_else(|| "Unknown".to_string());
+
                     let planet = fissure
                         .node
                         .as_ref()
@@ -73,22 +76,27 @@ pub async fn background_notification_task(
                     let _ = Notification::new()
                         .summary("Fissure Alert")
                         .body(&format!(
-                            "{:?} {mtype} at {node_name} ({planet})",
-                            fissure.tier
+                            "{:?} {mtype} at {node_name} ({planet}){}",
+                            fissure.tier,
+                            if fissure.is_steel_path {
+                                " - STEEL PATH"
+                            } else {
+                                ""
+                            }
                         ))
                         .appname("Void Fissures")
                         .show();
 
-                    should_notify = true;
+                    should_play_sound = true;
 
                     notified_ids.insert(fissure.id.clone());
                 }
             }
 
-            if should_notify {
+            if should_play_sound {
                 let source = get_source();
                 player.append(source);
-                should_notify = false;
+                should_play_sound = false;
             }
         }
 

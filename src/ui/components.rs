@@ -584,6 +584,119 @@ pub fn render_home(app: &VoidFissuresApp) -> Element<'_, Message> {
     ];
 
     if app.show_subscriptions {
+        let mut sorted_mission_types: Vec<_> = ALL_MISSION_TYPES.to_vec();
+        sorted_mission_types.sort_by_key(|m| mission_type_name(*m));
+
+        let render_sub_section = |is_sp: bool, sub: &crate::models::FissureSubscription| {
+            column![
+                text(if is_sp { "STEEL PATH" } else { "STAR CHART" })
+                    .size(11)
+                    .font(bold_font())
+                    .color(SOFT_CYAN),
+                Space::new().height(Length::Fixed(8.0)),
+                row![
+                    text("Tiers:")
+                        .size(11)
+                        .color(TEXT_DIM)
+                        .width(Length::Fixed(70.0)),
+                    row![
+                        filter_chip(
+                            "LITH",
+                            FissureTier::Lith,
+                            &sub.tiers,
+                            move |t| Message::SubscriptionTierToggled(is_sp, t)
+                        ),
+                        filter_chip(
+                            "MESO",
+                            FissureTier::Meso,
+                            &sub.tiers,
+                            move |t| Message::SubscriptionTierToggled(is_sp, t)
+                        ),
+                        filter_chip(
+                            "NEO",
+                            FissureTier::Neo,
+                            &sub.tiers,
+                            move |t| Message::SubscriptionTierToggled(is_sp, t)
+                        ),
+                        filter_chip(
+                            "AXI",
+                            FissureTier::Axi,
+                            &sub.tiers,
+                            move |t| Message::SubscriptionTierToggled(is_sp, t)
+                        ),
+                        filter_chip(
+                            "REQUIEM",
+                            FissureTier::Requiem,
+                            &sub.tiers,
+                            move |t| Message::SubscriptionTierToggled(is_sp, t)
+                        ),
+                        filter_chip(
+                            "OMNIA",
+                            FissureTier::Omnia,
+                            &sub.tiers,
+                            move |t| Message::SubscriptionTierToggled(is_sp, t)
+                        ),
+                    ]
+                    .spacing(10),
+                ]
+                .align_y(Alignment::Center),
+                Space::new().height(Length::Fixed(12.0)),
+                row![
+                    text("Missions:")
+                        .size(11)
+                        .color(TEXT_DIM)
+                        .width(Length::Fixed(70.0)),
+                    row(sorted_mission_types.iter().map(|&mtype| {
+                        let active = sub.mission_types.contains(&mtype);
+                        button(
+                            text(mission_type_name(mtype))
+                                .size(10)
+                                .font(bold_font())
+                                .align_x(Alignment::Center),
+                        )
+                        .padding([3, 10])
+                        .on_press(Message::SubscriptionMissionToggled(is_sp, mtype))
+                        .style(move |_theme, _status| {
+                            let base_bg = if active {
+                                Color {
+                                    a: 0.2,
+                                    ..SOFT_GOLD
+                                }
+                            } else {
+                                Color {
+                                    a: 0.03,
+                                    ..Color::WHITE
+                                }
+                            };
+                            let border_color = if active {
+                                SOFT_GOLD
+                            } else {
+                                Color {
+                                    a: 0.1,
+                                    ..Color::WHITE
+                                }
+                            };
+                            button::Style {
+                                background: Some(base_bg.into()),
+                                text_color: if active { Color::WHITE } else { TEXT_DIM },
+                                border: Border {
+                                    color: border_color,
+                                    width: 1.0,
+                                    radius: 20.0.into(),
+                                },
+                                ..Default::default()
+                            }
+                        })
+                        .into()
+                    }))
+                    .spacing(8)
+                    .wrap()
+                    .vertical_spacing(8)
+                ]
+                .align_y(Alignment::Start),
+            ]
+        };
+
         filter_content = filter_content
             .push(Space::new().height(Length::Fixed(20.0)))
             .push(
@@ -612,106 +725,9 @@ pub fn render_home(app: &VoidFissuresApp) -> Element<'_, Message> {
                     ]
                     .align_y(Alignment::Center),
                     Space::new().height(Length::Fixed(12.0)),
-                    row![
-                        text("Tiers:")
-                            .size(11)
-                            .color(TEXT_DIM)
-                            .width(Length::Fixed(70.0)),
-                        row![
-                            filter_chip(
-                                "LITH",
-                                FissureTier::Lith,
-                                &app.subscriptions.tiers,
-                                Message::SubscriptionTierToggled
-                            ),
-                            filter_chip(
-                                "MESO",
-                                FissureTier::Meso,
-                                &app.subscriptions.tiers,
-                                Message::SubscriptionTierToggled
-                            ),
-                            filter_chip(
-                                "NEO",
-                                FissureTier::Neo,
-                                &app.subscriptions.tiers,
-                                Message::SubscriptionTierToggled
-                            ),
-                            filter_chip(
-                                "AXI",
-                                FissureTier::Axi,
-                                &app.subscriptions.tiers,
-                                Message::SubscriptionTierToggled
-                            ),
-                            filter_chip(
-                                "REQUIEM",
-                                FissureTier::Requiem,
-                                &app.subscriptions.tiers,
-                                Message::SubscriptionTierToggled
-                            ),
-                            filter_chip(
-                                "OMNIA",
-                                FissureTier::Omnia,
-                                &app.subscriptions.tiers,
-                                Message::SubscriptionTierToggled
-                            ),
-                        ]
-                        .spacing(10),
-                    ]
-                    .align_y(Alignment::Center),
-                    Space::new().height(Length::Fixed(12.0)),
-                    row![
-                        text("Missions:")
-                            .size(11)
-                            .color(TEXT_DIM)
-                            .width(Length::Fixed(70.0)),
-                        row(sorted_mission_types.into_iter().map(|mtype| {
-                            let active = app.subscriptions.mission_types.contains(&mtype);
-                            button(
-                                text(mission_type_name(mtype))
-                                    .size(10)
-                                    .font(bold_font())
-                                    .align_x(Alignment::Center),
-                            )
-                            .padding([3, 10])
-                            .on_press(Message::SubscriptionMissionToggled(mtype))
-                            .style(move |_theme, _status| {
-                                let base_bg = if active {
-                                    Color {
-                                        a: 0.2,
-                                        ..SOFT_GOLD
-                                    }
-                                } else {
-                                    Color {
-                                        a: 0.03,
-                                        ..Color::WHITE
-                                    }
-                                };
-                                let border_color = if active {
-                                    SOFT_GOLD
-                                } else {
-                                    Color {
-                                        a: 0.1,
-                                        ..Color::WHITE
-                                    }
-                                };
-                                button::Style {
-                                    background: Some(base_bg.into()),
-                                    text_color: if active { Color::WHITE } else { TEXT_DIM },
-                                    border: Border {
-                                        color: border_color,
-                                        width: 1.0,
-                                        radius: 20.0.into(),
-                                    },
-                                    ..Default::default()
-                                }
-                            })
-                            .into()
-                        }))
-                        .spacing(8)
-                        .wrap()
-                        .vertical_spacing(8)
-                    ]
-                    .align_y(Alignment::Start),
+                    render_sub_section(false, &app.subscriptions.normal),
+                    Space::new().height(Length::Fixed(20.0)),
+                    render_sub_section(true, &app.subscriptions.steel_path),
                 ])
                 .padding(15)
                 .style(|_theme| container::Style {

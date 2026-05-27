@@ -28,9 +28,15 @@ pub enum SteelPathFilter {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct SubscriptionState {
+pub struct FissureSubscription {
     pub tiers: HashSet<FissureTier>,
     pub mission_types: HashSet<MissionType>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SubscriptionState {
+    pub normal: FissureSubscription,
+    pub steel_path: FissureSubscription,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -49,6 +49,7 @@ use crate::{
     models::{
         AppConfig,
         DataState,
+        LastFissureFetch,
         SteelPathFilter,
         SubscriptionState,
         tier_to_int,
@@ -61,10 +62,10 @@ use crate::{
 
 pub struct VoidFissuresApp {
     pub fissures: DataState<Vec<Fissure>>,
+    pub last_fetch: chrono::DateTime<Utc>,
     pub active_filters: HashSet<FissureTier>,
     pub mission_filters: HashSet<MissionType>,
     pub steel_path_filter: SteelPathFilter,
-    pub last_fetch: chrono::DateTime<Utc>,
     pub subscriptions: SubscriptionState,
     pub subscription_tx: watch::Sender<SubscriptionState>,
     pub show_subscriptions: bool,
@@ -140,11 +141,15 @@ impl VoidFissuresApp {
         player.set_volume(config.volume);
 
         let app = Self {
-            fissures: DataState::Loading,
+            fissures: config
+                .last_fetch
+                .as_ref()
+                .map(|lf| DataState::Loaded(lf.fissures.clone()))
+                .unwrap_or(DataState::Loading),
             active_filters: config.active_filters,
             mission_filters: config.mission_filters,
             steel_path_filter: config.steel_path_filter,
-            last_fetch: now,
+            last_fetch: config.last_fetch.as_ref().map(|lf| lf.at).unwrap_or(now),
             subscriptions: config.subscriptions,
             subscription_tx,
             show_subscriptions: false,
@@ -193,6 +198,14 @@ impl VoidFissuresApp {
             steel_path_filter: self.steel_path_filter,
             subscriptions: self.subscriptions.clone(),
             volume: self.volume,
+            last_fetch: match &self.fissures {
+                DataState::Loading => None,
+                DataState::Loaded(f) => Some(LastFissureFetch {
+                    fissures: f.clone(),
+                    at: self.last_fetch,
+                }),
+                DataState::Error(_) => None,
+            },
         }
         .save();
     }
@@ -218,6 +231,7 @@ impl VoidFissuresApp {
                 }
 
                 self.fissures = data;
+                self.save_config();
             }
             Message::FilterToggled(tier) => {
                 if self.active_filters.contains(&tier) {

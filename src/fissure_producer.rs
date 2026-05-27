@@ -14,7 +14,7 @@ use worldstate_parser::{
 
 use crate::{
     fissures::fetch_fissures,
-    models::DataState,
+    models::{AppConfig, DataState},
 };
 
 pub async fn fissure_event_producer(
@@ -28,6 +28,27 @@ pub async fn fissure_event_producer(
     ))
     .await
     .expect("Worldstate initialization failed");
+
+    let config = AppConfig::load();
+    if let Some(last_fetch) = config.last_fetch {
+        let elapsed = chrono::Utc::now() - last_fetch.at;
+        let remaining = chrono::Duration::minutes(5) - elapsed;
+
+        if remaining.num_seconds() > 0 {
+            tracing::info!(
+                "Respecting persistent fetch timer: sleeping for {}s",
+                remaining.num_seconds()
+            );
+            tokio::select! {
+                _ = tokio::time::sleep(Duration::from_secs(remaining.num_seconds() as u64)) => {
+                    tracing::info!("Persistent sleep finished");
+                }
+                _ = refresh_signal.notified() => {
+                    tracing::info!("User triggered manual refresh during persistent sleep");
+                }
+            }
+        }
+    }
 
     loop {
         let fissures = fetch_fissures(&client).await;

@@ -4,11 +4,13 @@ use std::{
     path::Path,
 };
 
+use chrono::Utc;
 use serde::{
     Deserialize,
     Serialize,
 };
 use worldstate_parser::{
+    Fissure,
     FissureTier,
     MissionType,
 };
@@ -40,12 +42,20 @@ pub struct SubscriptionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LastFissureFetch {
+    pub fissures: Vec<Fissure>,
+    pub at: chrono::DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub active_filters: HashSet<FissureTier>,
     pub mission_filters: HashSet<MissionType>,
     pub steel_path_filter: SteelPathFilter,
     pub subscriptions: SubscriptionState,
     pub volume: f32,
+
+    pub last_fetch: Option<LastFissureFetch>,
 }
 
 impl Default for AppConfig {
@@ -65,6 +75,7 @@ impl Default for AppConfig {
             steel_path_filter: SteelPathFilter::Both,
             subscriptions: SubscriptionState::default(),
             volume: 1.0,
+            last_fetch: None,
         }
     }
 }

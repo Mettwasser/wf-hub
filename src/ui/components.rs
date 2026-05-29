@@ -197,7 +197,7 @@ pub fn mode_chip<'a, Message: Clone + 'a>(
     .style(move |_theme, _status| {
         let base_bg = if active {
             Color {
-                a: 0.2,
+                a: 0.4,
                 ..SOFT_GOLD
             }
         } else {
@@ -359,10 +359,27 @@ pub fn fissure_card<'a, Message: Clone + 'a>(fissure: &Fissure) -> Element<'a, M
     let sp_badge = if fissure.is_steel_path {
         Some(
             container(
-                text("STEEL PATH")
-                    .size(10)
-                    .font(bold_font())
-                    .color(ERROR_RED),
+                row![
+                    svg(svg::Handle::from_memory(
+                        IMAGE_DIR.get_file("sp-logo.svg").unwrap().contents()
+                    ))
+                    .width(Length::Fixed(16.0))
+                    .height(Length::Fixed(16.0))
+                    .style(|_theme, _status| svg::Style {
+                        color: Some(Color {
+                            r: 0.7,
+                            g: 0.7,
+                            b: 0.7,
+                            a: 1.0,
+                        }),
+                    }),
+                    text("STEEL PATH")
+                        .size(10)
+                        .font(bold_font())
+                        .color(ERROR_RED),
+                ]
+                .spacing(6)
+                .align_y(Alignment::Center),
             )
             .padding([2, 6])
             .style(|_theme| container::Style {
@@ -395,27 +412,29 @@ pub fn fissure_card<'a, Message: Clone + 'a>(fissure: &Fissure) -> Element<'a, M
             } else {
                 Space::new().width(Length::Fixed(50.0)).into()
             },
-            column![
-                row![
-                    tier_label,
-                    Space::new().width(Length::Fixed(10.0)),
-                    if let Some(badge) = sp_badge {
-                        Element::from(badge)
-                    } else {
-                        Space::new().width(Length::Fixed(0.0)).into()
-                    },
-                ]
-                .align_y(Alignment::Center),
-                Space::new().height(Length::Fixed(6.0)),
+            container(
                 column![
-                    text(planet.to_uppercase())
-                        .size(18)
-                        .font(bold_font())
-                        .color(Color::WHITE),
-                    text(node_name.to_uppercase()).size(14).color(TEXT_DIM),
-                ],
-            ]
-            .width(Length::Fixed(250.0)),
+                    row![
+                        tier_label,
+                        Space::new().width(Length::Fixed(10.0)),
+                        if let Some(badge) = sp_badge {
+                            Element::from(badge)
+                        } else {
+                            Space::new().width(Length::Fixed(0.0)).into()
+                        },
+                    ]
+                    .align_y(Alignment::Center),
+                    Space::new().height(Length::Fixed(6.0)),
+                    column![
+                        text(planet.to_uppercase())
+                            .size(18)
+                            .font(bold_font())
+                            .color(Color::WHITE),
+                        text(node_name.to_uppercase()).size(14).color(TEXT_DIM),
+                    ],
+                ]
+                .width(Length::Fixed(250.0))
+            ),
             container(text(mtype).size(14).font(bold_font()).color(SOFT_GOLD))
                 .width(Length::Fixed(180.0))
                 .align_x(Alignment::Start),
@@ -452,10 +471,10 @@ pub fn fissure_card<'a, Message: Clone + 'a>(fissure: &Fissure) -> Element<'a, M
 
 pub fn get_tier_color(tier: FissureTier) -> Color {
     match tier {
-        FissureTier::Lith => Color::from_rgb(0.4, 0.6, 0.8),
-        FissureTier::Meso => Color::from_rgb(0.7, 0.7, 0.3),
-        FissureTier::Neo => Color::from_rgb(0.8, 0.5, 0.2),
-        FissureTier::Axi => Color::from_rgb(0.7, 0.3, 0.3),
+        FissureTier::Lith => Color::from_rgb(0.7411, 0.5686, 0.4666),
+        FissureTier::Meso => Color::from_rgb(0.20, 0.48, 0.55),
+        FissureTier::Neo => Color::from_rgb(0.8196, 0.8156, 0.8196),
+        FissureTier::Axi => Color::from_rgb(0.9254, 0.8823, 0.4588),
         FissureTier::Requiem => Color::from_rgb(0.6, 0.2, 0.2),
         FissureTier::Omnia => Color::from_rgb(0.5, 0.3, 0.8),
     }
@@ -600,42 +619,24 @@ pub fn render_home(app: &VoidFissuresApp) -> Element<'_, Message> {
                         .color(TEXT_DIM)
                         .width(Length::Fixed(70.0)),
                     row![
-                        filter_chip(
-                            "LITH",
-                            FissureTier::Lith,
-                            &sub.tiers,
-                            move |t| Message::SubscriptionTierToggled(is_sp, t)
-                        ),
-                        filter_chip(
-                            "MESO",
-                            FissureTier::Meso,
-                            &sub.tiers,
-                            move |t| Message::SubscriptionTierToggled(is_sp, t)
-                        ),
-                        filter_chip(
-                            "NEO",
-                            FissureTier::Neo,
-                            &sub.tiers,
-                            move |t| Message::SubscriptionTierToggled(is_sp, t)
-                        ),
-                        filter_chip(
-                            "AXI",
-                            FissureTier::Axi,
-                            &sub.tiers,
-                            move |t| Message::SubscriptionTierToggled(is_sp, t)
-                        ),
-                        filter_chip(
-                            "REQUIEM",
-                            FissureTier::Requiem,
-                            &sub.tiers,
-                            move |t| Message::SubscriptionTierToggled(is_sp, t)
-                        ),
-                        filter_chip(
-                            "OMNIA",
-                            FissureTier::Omnia,
-                            &sub.tiers,
-                            move |t| Message::SubscriptionTierToggled(is_sp, t)
-                        ),
+                        filter_chip("LITH", FissureTier::Lith, &sub.tiers, move |t| {
+                            Message::SubscriptionTierToggled(is_sp, t)
+                        }),
+                        filter_chip("MESO", FissureTier::Meso, &sub.tiers, move |t| {
+                            Message::SubscriptionTierToggled(is_sp, t)
+                        }),
+                        filter_chip("NEO", FissureTier::Neo, &sub.tiers, move |t| {
+                            Message::SubscriptionTierToggled(is_sp, t)
+                        }),
+                        filter_chip("AXI", FissureTier::Axi, &sub.tiers, move |t| {
+                            Message::SubscriptionTierToggled(is_sp, t)
+                        }),
+                        filter_chip("REQUIEM", FissureTier::Requiem, &sub.tiers, move |t| {
+                            Message::SubscriptionTierToggled(is_sp, t)
+                        }),
+                        filter_chip("OMNIA", FissureTier::Omnia, &sub.tiers, move |t| {
+                            Message::SubscriptionTierToggled(is_sp, t)
+                        }),
                     ]
                     .spacing(10),
                 ]

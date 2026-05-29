@@ -352,37 +352,29 @@ impl VoidFissuresApp {
             .spacing(8),
             Space::new().width(Length::Fill),
             row![
-                button(
-                    text(if self.show_subscriptions {
-                        "CLOSE SETTINGS"
-                    } else {
-                        "MANAGE ALERTS"
-                    })
-                    .size(14)
-                    .font(bold_font())
-                )
-                .padding([8, 16])
-                .on_press(Message::ToggleSubscriptions)
-                .style(move |_theme, _status| {
-                    let active = self.show_subscriptions;
-                    button::Style {
-                        background: Some(
-                            if active {
-                                SOFT_GOLD
-                            } else {
-                                Color::TRANSPARENT
-                            }
-                            .into(),
-                        ),
-                        text_color: if active { Color::BLACK } else { SOFT_GOLD },
-                        border: Border {
-                            color: SOFT_GOLD,
-                            width: 1.0,
-                            radius: 4.0.into(),
-                        },
-                        ..Default::default()
-                    }
-                }),
+                button(text("MANAGE ALERTS").size(14).font(bold_font()))
+                    .padding([8, 16])
+                    .on_press(Message::ToggleSubscriptions)
+                    .style(move |_theme, _status| {
+                        let active = self.show_subscriptions;
+                        button::Style {
+                            background: Some(
+                                if active {
+                                    SOFT_GOLD
+                                } else {
+                                    Color::TRANSPARENT
+                                }
+                                .into(),
+                            ),
+                            text_color: if active { Color::BLACK } else { SOFT_GOLD },
+                            border: Border {
+                                color: SOFT_GOLD,
+                                width: 1.0,
+                                radius: 4.0.into(),
+                            },
+                            ..Default::default()
+                        }
+                    }),
                 Space::new().width(Length::Fixed(10.0)),
                 column![
                     button(

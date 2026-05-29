@@ -14,7 +14,10 @@ use worldstate_parser::{
 
 use crate::{
     fissures::fetch_fissures,
-    models::{AppConfig, DataState},
+    models::{
+        AppConfig,
+        DataState,
+    },
 };
 
 pub async fn fissure_event_producer(

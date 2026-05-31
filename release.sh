@@ -3,14 +3,22 @@
 # Exit immediately if any command fails
 set -e
 
-# Check if a version argument was provided
-if [ -z "$1" ]; then
-  echo "Error: Please provide a version number."
-  echo "Usage: ./release.sh <version>"
+VERSION=$(cargo pkgid | cut -d'#' -f2 | cut -d':' -f2)
+
+# Safety check: Ensure we actually got a version string
+if [ -z "$VERSION" ]; then
+  echo "Error: Could not extract version from Cargo.toml."
   exit 1
 fi
 
-VERSION=$1
+# Optional: Confirmation prompt to prevent accidental releases
+echo "Detected version v$VERSION from Cargo.toml."
+read -p "Do you want to proceed with creating this release? (y/N) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "Release aborted."
+    exit 0
+fi
 
 echo "🔨 Building targets for version v$VERSION..."
 

@@ -33,9 +33,9 @@ pub async fn background_notification_task(
     let mut should_play_sound = false;
 
     loop {
-        let subs = subscription_rx.borrow().clone();
-
         if let DataState::Loaded(ref fissures) = *fissures_rx.borrow() {
+            let subs = subscription_rx.borrow();
+
             for fissure in fissures {
                 let sub = if fissure.is_steel_path {
                     &subs.steel_path
@@ -88,7 +88,6 @@ pub async fn background_notification_task(
                         .show();
 
                     should_play_sound = true;
-
                     notified_ids.insert(fissure.id.clone());
                 }
             }

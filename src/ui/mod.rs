@@ -127,7 +127,7 @@ impl VoidFissuresApp {
         let config = AppConfig::load();
         let now = Utc::now();
 
-        let (subscription_tx, subscription_rx) = watch::channel(SubscriptionState::default());
+        let (subscription_tx, subscription_rx) = watch::channel(config.subscriptions.clone());
         let (fissure_tx, fissure_rx) = watch::channel(DataState::<Vec<Fissure>>::Loading);
         let notify = Arc::new(Notify::new());
 

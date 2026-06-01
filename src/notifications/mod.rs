@@ -31,10 +31,16 @@ pub async fn background_notification_task(
 ) {
     let mut notified_ids: HashSet<String> = HashSet::new();
     let mut should_play_sound = false;
+    let mut first_fetch = true;
 
     loop {
         if let DataState::Loaded(ref fissures) = *fissures_rx.borrow() {
             let subs = subscription_rx.borrow();
+
+            // for app startup; pollute notified ids so we don't send a notification on startup
+            if first_fetch {
+                notified_ids.extend(fissures.iter().map(|f| f.id.clone()));
+            }
 
             for fissure in fissures {
                 let sub = if fissure.is_steel_path {
@@ -73,16 +79,17 @@ pub async fn background_notification_task(
                         .map(|n| n.planet.clone())
                         .unwrap_or_else(|| "Unknown".to_string());
 
+                    let steel_path_tag = if fissure.is_steel_path {
+                        " - STEEL PATH"
+                    } else {
+                        ""
+                    };
+
                     let _ = Notification::new()
                         .summary("Fissure Alert")
                         .body(&format!(
-                            "{:?} {mtype} at {node_name} ({planet}){}",
+                            "{:?} {mtype} at {node_name} ({planet}){steel_path_tag}",
                             fissure.tier,
-                            if fissure.is_steel_path {
-                                " - STEEL PATH"
-                            } else {
-                                ""
-                            }
                         ))
                         .appname("Void Fissures")
                         .show();
@@ -92,13 +99,19 @@ pub async fn background_notification_task(
                 }
             }
 
+            first_fetch = false;
+
             if should_play_sound {
                 let source = get_source();
                 player.append(source);
                 should_play_sound = false;
             }
+
+            let current_ids: HashSet<&String> = fissures.iter().map(|f| &f.id).collect();
+            notified_ids.retain(|id| current_ids.contains(id));
         }
 
+        tracing::info!(first_fetch, ?notified_ids, "Completed iteration");
         let _ = fissures_rx.changed().await;
     }
 }

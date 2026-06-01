@@ -6,7 +6,8 @@ mod ui;
 
 use crate::ui::VoidFissuresApp;
 
-fn main() -> iced::Result {
+#[cfg(not(debug_assertions))]
+fn init_tracing() {
     let file_appender = tracing_appender::rolling::never(".", "wf-hub.log");
     let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
 
@@ -14,6 +15,17 @@ fn main() -> iced::Result {
         .with_writer(non_blocking)
         .with_max_level(tracing::Level::INFO)
         .init();
+}
+
+#[cfg(debug_assertions)]
+fn init_tracing() {
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
+}
+
+fn main() -> iced::Result {
+    init_tracing();
 
     iced::application(
         VoidFissuresApp::init,

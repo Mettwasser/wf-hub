@@ -196,7 +196,7 @@ impl VoidFissuresApp {
             show_subscriptions: false,
             audio_player: player.clone(),
             refresh_notifier: notify.clone(),
-            current_tab: 0,
+            current_tab: config.current_tab,
             selected_archimedea_tab: 0,
             volume: config.volume,
             volume_debouncer: None,
@@ -296,6 +296,7 @@ impl VoidFissuresApp {
             steel_path_filter: self.steel_path_filter,
             subscriptions: self.subscriptions.clone(),
             volume: self.volume,
+            current_tab: self.current_tab,
             last_fetch,
         }
         .save();
@@ -408,6 +409,7 @@ impl VoidFissuresApp {
             }
             Message::SwitchTab(new_tab_idx) => {
                 self.current_tab = new_tab_idx;
+                self.save_config();
             }
             Message::SwitchArchimedeaTab(new_tab_idx) => {
                 self.selected_archimedea_tab = new_tab_idx;

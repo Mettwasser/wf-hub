@@ -87,6 +87,8 @@ pub struct AppConfig {
     pub steel_path_filter: SteelPathFilter,
     pub subscriptions: SubscriptionState,
     pub volume: f32,
+    #[serde(default)]
+    pub current_tab: usize,
 
     pub last_fetch: Option<LastFetch>,
 }
@@ -108,6 +110,7 @@ impl Default for AppConfig {
             steel_path_filter: SteelPathFilter::Both,
             subscriptions: SubscriptionState::default(),
             volume: 1.0,
+            current_tab: 0,
             last_fetch: None,
         }
     }

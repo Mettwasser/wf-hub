@@ -1,22 +1,45 @@
 use iced::{
-    Alignment, Border, Color, Element, Length,
-    widget::{column, container, row, scrollable, text, Space, Stack, image},
+    Alignment,
+    Border,
+    Color,
+    Element,
+    Length,
+    widget::{
+        Space,
+        Stack,
+        column,
+        container,
+        image,
+        row,
+        scrollable,
+        text,
+    },
 };
 use worldstate_parser::cycles::{
+    Cycle,
+    cambion_drift::CambionDriftState,
     cetus::CetusState,
     orb_vallis::OrbVallisState,
-    cambion_drift::CambionDriftState,
 };
 
 use super::theme::{
-    bold_font, BG_DARK, SOFT_GOLD, SOFT_CYAN, TEXT_DIM, ERROR_RED,
+    BG_DARK,
+    ERROR_RED,
+    SOFT_CYAN,
+    SOFT_GOLD,
+    TEXT_DIM,
+    bold_font,
 };
 use crate::{
     models::DataState,
     ui::{
         Message,
         VoidFissuresApp,
-        images::{get_poe_image, get_orbvallis_image, get_cambiondrift_image},
+        images::{
+            get_cambiondrift_image,
+            get_orbvallis_image,
+            get_poe_image,
+        },
     },
 };
 
@@ -29,15 +52,14 @@ struct WorldCardInfo {
     progress: f32,
 }
 
-fn calculate_progress<S>(cycle: &worldstate_parser::cycles::Cycle<S>) -> f32 {
+fn calculate_progress<S>(cycle: &Cycle<S>) -> f32 {
     let now = chrono::Utc::now();
     let total = (cycle.expiry - cycle.activation).num_seconds();
     if total <= 0 {
         return 0.0;
     }
-    let remaining = (cycle.expiry - now).num_seconds();
-    let elapsed = total - remaining;
-    (elapsed as f32 / total as f32).clamp(0.0, 1.0)
+    let remaining = (cycle.expiry - now).num_seconds().max(0);
+    (remaining as f32 / total as f32).clamp(0.0, 1.0)
 }
 
 fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
@@ -75,24 +97,23 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
             Space::new().width(Length::Fill),
             container(
                 text(info.phase_name)
-                    .size(11)
+                    .size(13)
                     .font(bold_font())
-                    .color(Color::BLACK)
+                    .color(Color::WHITE)
             )
             .padding([6, 12])
             .style(move |_| container::Style {
-                background: Some(info.phase_color.into()),
+                background: Some(Color { a: 0.12, ..info.phase_color }.into()),
                 border: Border {
-                    radius: 12.0.into(),
-                    ..Default::default()
+                    color: Color { a: 0.25, ..info.phase_color },
+                    width: 1.0,
+                    radius: 6.0.into(),
                 },
                 ..Default::default()
             })
         ]
         .align_y(Alignment::Center),
-
         Space::new().height(Length::Fill),
-
         row![
             text("TIME REMAINING:")
                 .size(11)
@@ -105,9 +126,7 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
                 .color(Color::WHITE),
         ]
         .align_y(Alignment::End),
-
         Space::new().height(Length::Fixed(10.0)),
-
         progress_bar,
     ]
     .padding(24)
@@ -117,7 +136,7 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
         image(info.image_handle)
             .width(Length::Fill)
             .height(Length::Fill)
-            .content_fit(iced::ContentFit::Cover)
+            .content_fit(iced::ContentFit::Cover),
     )
     .width(Length::Fill)
     .height(Length::Fixed(180.0))
@@ -144,11 +163,7 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
             ..Default::default()
         });
 
-    Stack::with_children(vec![
-        base_image.into(),
-        overlay.into(),
-    ])
-    .into()
+    Stack::with_children([base_image.into(), overlay.into()]).into()
 }
 
 pub fn render_open_worlds(app: &VoidFissuresApp) -> Element<'_, Message> {
@@ -174,7 +189,7 @@ pub fn render_open_worlds(app: &VoidFissuresApp) -> Element<'_, Message> {
                 Space::new().height(Length::Fixed(10.0)),
                 text(e).size(14).color(TEXT_DIM),
             ]
-            .align_x(Alignment::Center)
+            .align_x(Alignment::Center),
         )
         .width(Length::Fill)
         .height(Length::Fill)
@@ -241,7 +256,7 @@ pub fn render_open_worlds(app: &VoidFissuresApp) -> Element<'_, Message> {
                     render_card(cambion_info),
                 ]
                 .spacing(20)
-                .padding(10)
+                .padding(10),
             )
             .height(Length::Fill)
             .into()

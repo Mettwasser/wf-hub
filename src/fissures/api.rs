@@ -11,7 +11,14 @@ use worldstate_parser::{
 
 pub async fn fetch_world_state(
     client: &reqwest::Client,
-) -> Result<(Vec<Fissure>, worldstate_parser::ArchimedeaRoot), String> {
+) -> Result<
+    (
+        Vec<Fissure>,
+        worldstate_parser::ArchimedeaRoot,
+        crate::models::OpenWorldCycles,
+    ),
+    String,
+> {
     let url = "https://api.warframe.com/cdn/worldState.php";
     let raw_json = client
         .get(url)
@@ -37,5 +44,12 @@ pub async fn fetch_world_state(
 
     tracing::debug!(?worldstate.fissures);
 
-    Ok((worldstate.fissures, worldstate.archimedea))
+    let open_worlds = crate::models::OpenWorldCycles {
+        cetus: worldstate.cetus_cycle,
+        cambion: worldstate.cambion_drift_cycle,
+        vallis: worldstate.orb_vallis_cycle,
+    };
+
+    Ok((worldstate.fissures, worldstate.archimedea, open_worlds))
 }
+

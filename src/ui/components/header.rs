@@ -29,7 +29,8 @@ pub fn render_header<'a>(app: &'a VoidFissuresApp, countdown_text: &str) -> Elem
     let title = match app.current_tab {
         0 => "VOID FISSURES",
         1 => "ELITE ARCHIMEDEA",
-        2 => "SETTINGS",
+        2 => "OPEN WORLDS",
+        3 => "SETTINGS",
         _ => "WARFRAME HUB",
     };
 
@@ -65,7 +66,7 @@ pub fn render_header<'a>(app: &'a VoidFissuresApp, countdown_text: &str) -> Elem
         );
     }
 
-    if app.current_tab == 0 || app.current_tab == 1 {
+    if app.current_tab == 0 || app.current_tab == 1 || app.current_tab == 2 {
         action_buttons = action_buttons.push(
             button(
                 text("REFRESH")

@@ -93,8 +93,9 @@ pub fn render_sidebar(app: &VoidFissuresApp) -> Element<'_, Message> {
     let menu = column![
         sidebar_button("VOID FISSURES", app.current_tab == 0, Message::SwitchTab(0)),
         sidebar_button("ELITE ARCHIMEDEA", app.current_tab == 1, Message::SwitchTab(1)),
+        sidebar_button("OPEN WORLDS", app.current_tab == 2, Message::SwitchTab(2)),
         // SETTINGS is hidden for now until more options are introduced
-        // sidebar_button("SETTINGS", app.current_tab == 2, Message::SwitchTab(2)),
+        // sidebar_button("SETTINGS", app.current_tab == 3, Message::SwitchTab(3)),
     ]
     .spacing(8);
 

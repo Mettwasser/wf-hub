@@ -58,6 +58,7 @@ use crate::{
 pub struct WorldState {
     pub fissures: DataState<Vec<worldstate_parser::Fissure>>,
     pub archimedea: DataState<Box<worldstate_parser::ArchimedeaRoot>>,
+    pub open_worlds: DataState<crate::models::OpenWorldCycles>,
 }
 
 pub struct VoidFissuresApp {
@@ -84,6 +85,7 @@ pub enum Message {
     Tick,
     FissuresLoaded(DataState<Vec<worldstate_parser::Fissure>>),
     ArchimedeaLoaded(DataState<Box<worldstate_parser::ArchimedeaRoot>>),
+    OpenWorldsLoaded(DataState<crate::models::OpenWorldCycles>),
     FilterToggled(FissureTier),
     MissionFilterToggled(MissionType),
     SteelPathFilterChanged(SteelPathFilter),
@@ -136,6 +138,8 @@ impl VoidFissuresApp {
             watch::channel(DataState::<Vec<worldstate_parser::Fissure>>::Loading);
         let (archimedea_tx, archimedea_rx) =
             watch::channel(DataState::<Box<worldstate_parser::ArchimedeaRoot>>::Loading);
+        let (open_worlds_tx, open_worlds_rx) =
+            watch::channel(DataState::<crate::models::OpenWorldCycles>::Loading);
         let notify = Arc::new(Notify::new());
 
         // SAFETY: This should have a static lifetime anyway. So it's cleaned up when the app
@@ -170,10 +174,18 @@ impl VoidFissuresApp {
             })
             .unwrap_or(DataState::Loading);
 
+        let open_worlds_init = config
+            .last_fetch
+            .as_ref()
+            .and_then(|lf| lf.open_worlds.clone())
+            .map(DataState::Loaded)
+            .unwrap_or(DataState::Loading);
+
         let app = Self {
             world_state: WorldState {
                 fissures: fissures_init,
                 archimedea: archimedea_init,
+                open_worlds: open_worlds_init,
             },
             active_filters: config.active_filters,
             mission_filters: config.mission_filters,
@@ -222,9 +234,26 @@ impl VoidFissuresApp {
             })
         };
 
+        let open_worlds_stream = {
+            let rx = open_worlds_rx.clone();
+            iced::futures::stream::unfold(rx, async move |mut rx| {
+                if rx.changed().await.is_ok() {
+                    let data = rx.borrow().clone();
+                    Some((Message::OpenWorldsLoaded(data), rx))
+                } else {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    Some((
+                        Message::OpenWorldsLoaded(DataState::Error("Channel closed".to_owned())),
+                        rx,
+                    ))
+                }
+            })
+        };
+
         let watch_collection = WatchCollection {
             fissure_tx,
             archimedea_tx,
+            open_worlds_tx,
         };
 
         (
@@ -232,6 +261,7 @@ impl VoidFissuresApp {
             Task::batch([
                 Task::stream(fissure_stream),
                 Task::stream(archimedea_stream),
+                Task::stream(open_worlds_stream),
                 Task::future(background_notification_task(
                     subscription_rx,
                     player.clone(),
@@ -245,11 +275,18 @@ impl VoidFissuresApp {
 
     fn save_config(&self) {
         let last_fetch = match (&self.world_state.fissures, &self.world_state.archimedea) {
-            (DataState::Loaded(fissures), DataState::Loaded(archimedea)) => Some(LastFetch {
-                fissures: fissures.clone(),
-                archimedea: Some((**archimedea).clone()),
-                at: self.last_fetch,
-            }),
+            (DataState::Loaded(fissures), DataState::Loaded(archimedea)) => {
+                let open_worlds = match &self.world_state.open_worlds {
+                    DataState::Loaded(ow) => Some(ow.clone()),
+                    _ => None,
+                };
+                Some(LastFetch {
+                    fissures: fissures.clone(),
+                    archimedea: Some((**archimedea).clone()),
+                    open_worlds,
+                    at: self.last_fetch,
+                })
+            }
             _ => None,
         };
 
@@ -269,6 +306,7 @@ impl VoidFissuresApp {
             Message::Refresh => {
                 self.world_state.fissures = DataState::Loading;
                 self.world_state.archimedea = DataState::Loading;
+                self.world_state.open_worlds = DataState::Loading;
                 self.refresh_notifier.notify_one();
             }
             Message::Tick => {
@@ -276,6 +314,12 @@ impl VoidFissuresApp {
 
                 if let DataState::Loaded(fissures) = &mut self.world_state.fissures {
                     fissures.retain(|f| f.expiry > now);
+                }
+
+                if let DataState::Loaded(open_worlds) = &mut self.world_state.open_worlds {
+                    open_worlds.cetus = worldstate_parser::cycles::cetus::CetusCycle::now();
+                    open_worlds.vallis = worldstate_parser::cycles::orb_vallis::OrbVallisCycle::now();
+                    open_worlds.cambion = worldstate_parser::cycles::cambion_drift::CambionDriftCycle::now();
                 }
             }
             Message::FissuresLoaded(mut data) => {
@@ -290,6 +334,10 @@ impl VoidFissuresApp {
             }
             Message::ArchimedeaLoaded(data) => {
                 self.world_state.archimedea = data;
+                self.save_config();
+            }
+            Message::OpenWorldsLoaded(data) => {
+                self.world_state.open_worlds = data;
                 self.save_config();
             }
             Message::FilterToggled(tier) => {
@@ -414,7 +462,8 @@ impl VoidFissuresApp {
         let content = match self.current_tab {
             0 => render_fissures(self),
             1 => render_archimedea(self),
-            2 => render_settings(self),
+            2 => render_open_worlds(self),
+            3 => render_settings(self),
             idx => unreachable!("No tab defined under {idx}"),
         };
 

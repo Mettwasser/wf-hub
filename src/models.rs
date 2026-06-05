@@ -57,6 +57,13 @@ impl Default for SubscriptionState {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct OpenWorldCycles {
+    pub cetus: worldstate_parser::cycles::cetus::CetusCycle,
+    pub cambion: worldstate_parser::cycles::cambion_drift::CambionDriftCycle,
+    pub vallis: worldstate_parser::cycles::orb_vallis::OrbVallisCycle,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppData {
     pub fissures: Vec<Fissure>,
@@ -68,6 +75,8 @@ pub struct LastFetch {
     pub fissures: Vec<Fissure>,
     #[serde(default)]
     pub archimedea: Option<worldstate_parser::ArchimedeaRoot>,
+    #[serde(default)]
+    pub open_worlds: Option<OpenWorldCycles>,
     pub at: chrono::DateTime<Utc>,
 }
 

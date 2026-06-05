@@ -24,6 +24,7 @@ use crate::{
 pub struct WatchCollection {
     pub fissure_tx: watch::Sender<DataState<Vec<Fissure>>>,
     pub archimedea_tx: watch::Sender<DataState<Box<ArchimedeaRoot>>>,
+    pub open_worlds_tx: watch::Sender<DataState<crate::models::OpenWorldCycles>>,
 }
 
 pub async fn world_state_producer(collection: WatchCollection, refresh_signal: Arc<Notify>) {
@@ -31,6 +32,7 @@ pub async fn world_state_producer(collection: WatchCollection, refresh_signal: A
     let WatchCollection {
         fissure_tx,
         archimedea_tx,
+        open_worlds_tx,
     } = collection;
 
     worldstate_parser::default_data_fetcher::fetch_all(CacheStrategy::Duration(
@@ -64,13 +66,15 @@ pub async fn world_state_producer(collection: WatchCollection, refresh_signal: A
         let res = fetch_world_state(&client).await;
 
         match res {
-            Ok((fissures, archimedea)) => {
+            Ok((fissures, archimedea, open_worlds)) => {
                 let _ = fissure_tx.send(DataState::Loaded(fissures));
                 let _ = archimedea_tx.send(DataState::Loaded(Box::new(archimedea)));
+                let _ = open_worlds_tx.send(DataState::Loaded(open_worlds));
             }
             Err(e) => {
                 let _ = fissure_tx.send(DataState::Error(e.to_string()));
                 let _ = archimedea_tx.send(DataState::Error(e.to_string()));
+                let _ = open_worlds_tx.send(DataState::Error(e.to_string()));
             }
         }
 

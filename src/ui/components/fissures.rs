@@ -45,7 +45,10 @@ use crate::{
         ALL_MISSION_TYPES,
         Message,
         VoidFissuresApp,
-        images::IMAGE_DIR,
+        images::{
+            FACTION_ICON_DIR,
+            GENERAL_DIR,
+        },
     },
 };
 
@@ -207,7 +210,10 @@ pub fn faction_icon<'a, Message: Clone + 'a>(faction: Faction) -> Element<'a, Me
     let name = format!("{faction:?}").to_lowercase();
     let svg_path = format!("{name}.svg");
 
-    if let Some(content) = IMAGE_DIR.get_file(svg_path).map(|file| file.contents()) {
+    if let Some(content) = FACTION_ICON_DIR
+        .get_file(svg_path)
+        .map(|file| file.contents())
+    {
         container(
             svg(svg::Handle::from_memory(content))
                 .width(Length::Fixed(50.0))
@@ -282,7 +288,7 @@ pub fn fissure_card<'a, Message: Clone + 'a>(fissure: &Fissure) -> Element<'a, M
             container(
                 row![
                     svg(svg::Handle::from_memory(
-                        IMAGE_DIR.get_file("sp-logo.svg").unwrap().contents()
+                        GENERAL_DIR.get_file("sp-logo.svg").unwrap().contents()
                     ))
                     .width(Length::Fixed(16.0))
                     .height(Length::Fixed(16.0))

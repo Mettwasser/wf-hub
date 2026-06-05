@@ -1,6 +1,5 @@
 pub mod components;
 pub mod images;
-pub mod tab;
 
 use std::{
     collections::HashSet,
@@ -10,9 +9,6 @@ use std::{
 
 use chrono::Utc;
 use iced::{
-    Alignment,
-    Border,
-    Color,
     Element,
     Length,
     Subscription,
@@ -21,12 +17,9 @@ use iced::{
     padding,
     task,
     widget::{
-        Space,
-        button,
         column,
         container,
         row,
-        text,
     },
 };
 use rodio::{
@@ -38,7 +31,6 @@ use tokio::sync::{
     watch,
 };
 use worldstate_parser::{
-    Fissure,
     FissureTier,
     MissionType,
 };
@@ -48,8 +40,9 @@ use crate::{
     fissure_producer::fissure_event_producer,
     models::{
         AppConfig,
+        AppData,
         DataState,
-        LastFissureFetch,
+        LastFetch,
         SteelPathFilter,
         SubscriptionState,
         tier_to_int,
@@ -61,7 +54,7 @@ use crate::{
 };
 
 pub struct VoidFissuresApp {
-    pub fissures: DataState<Vec<Fissure>>,
+    pub fissures: DataState<Box<AppData>>,
     pub last_fetch: chrono::DateTime<Utc>,
     pub active_filters: HashSet<FissureTier>,
     pub mission_filters: HashSet<MissionType>,
@@ -72,6 +65,7 @@ pub struct VoidFissuresApp {
     pub audio_player: Arc<rodio::Player>,
     pub refresh_notifier: Arc<Notify>,
     pub current_tab: usize,
+    pub selected_archimedea_tab: usize,
     pub volume: f32,
 
     pub volume_debouncer: Option<task::Handle>,
@@ -81,7 +75,7 @@ pub struct VoidFissuresApp {
 pub enum Message {
     Refresh,
     Tick,
-    FissuresLoaded(DataState<Vec<Fissure>>),
+    FissuresLoaded(DataState<Box<AppData>>),
     FilterToggled(FissureTier),
     MissionFilterToggled(MissionType),
     SteelPathFilterChanged(SteelPathFilter),
@@ -93,6 +87,7 @@ pub enum Message {
     ToggleSubscriptions,
     TestAlert,
     SwitchTab(usize),
+    SwitchArchimedeaTab(usize),
 
     // Volume
     ChangeVolume(f32),
@@ -128,7 +123,7 @@ impl VoidFissuresApp {
         let now = Utc::now();
 
         let (subscription_tx, subscription_rx) = watch::channel(config.subscriptions.clone());
-        let (fissure_tx, fissure_rx) = watch::channel(DataState::<Vec<Fissure>>::Loading);
+        let (fissure_tx, fissure_rx) = watch::channel(DataState::<Box<AppData>>::Loading);
         let notify = Arc::new(Notify::new());
 
         // SAFETY: This should have a static lifetime anyway. So it's cleaned up when the app
@@ -144,7 +139,20 @@ impl VoidFissuresApp {
             fissures: config
                 .last_fetch
                 .as_ref()
-                .map(|lf| DataState::Loaded(lf.fissures.clone()))
+                .map(|lf| {
+                    let archimedea = lf.archimedea.clone().unwrap_or({
+                        worldstate_parser::ArchimedeaRoot {
+                            deep: None,
+                            elite_deep: None,
+                            temporal: None,
+                            elite_temporal: None,
+                        }
+                    });
+                    DataState::Loaded(Box::new(AppData {
+                        fissures: lf.fissures.clone(),
+                        archimedea,
+                    }))
+                })
                 .unwrap_or(DataState::Loading),
             active_filters: config.active_filters,
             mission_filters: config.mission_filters,
@@ -156,6 +164,7 @@ impl VoidFissuresApp {
             audio_player: player.clone(),
             refresh_notifier: notify.clone(),
             current_tab: 0,
+            selected_archimedea_tab: 0,
             volume: config.volume,
             volume_debouncer: None,
         };
@@ -200,8 +209,9 @@ impl VoidFissuresApp {
             volume: self.volume,
             last_fetch: match &self.fissures {
                 DataState::Loading => None,
-                DataState::Loaded(f) => Some(LastFissureFetch {
-                    fissures: f.clone(),
+                DataState::Loaded(data) => Some(LastFetch {
+                    fissures: data.fissures.clone(),
+                    archimedea: Some(data.archimedea.clone()),
                     at: self.last_fetch,
                 }),
                 DataState::Error(_) => None,
@@ -219,15 +229,15 @@ impl VoidFissuresApp {
             Message::Tick => {
                 let now = Utc::now();
 
-                if let DataState::Loaded(fissures) = &mut self.fissures {
-                    fissures.retain(|f| f.expiry > now);
+                if let DataState::Loaded(data) = &mut self.fissures {
+                    data.fissures.retain(|f| f.expiry > now);
                 }
             }
             Message::FissuresLoaded(mut data) => {
                 self.last_fetch = Utc::now();
 
-                if let DataState::Loaded(fissures) = &mut data {
-                    fissures.sort_by_key(|f| tier_to_int(f.tier));
+                if let DataState::Loaded(app_data) = &mut data {
+                    app_data.fissures.sort_by_key(|f| tier_to_int(f.tier));
                 }
 
                 self.fissures = data;
@@ -297,6 +307,9 @@ impl VoidFissuresApp {
             Message::SwitchTab(new_tab_idx) => {
                 self.current_tab = new_tab_idx;
             }
+            Message::SwitchArchimedeaTab(new_tab_idx) => {
+                self.selected_archimedea_tab = new_tab_idx;
+            }
             Message::TestVolume => {
                 self.audio_player.append(get_source());
             }
@@ -341,80 +354,32 @@ impl VoidFissuresApp {
             next_refresh_secs % 60
         );
 
-        let title_bar = row![
-            column![
-                text("VOID FISSURES")
-                    .size(32)
-                    .font(bold_font())
-                    .color(SOFT_GOLD),
-                tab_buttons(self.current_tab)
-            ]
-            .spacing(8),
-            Space::new().width(Length::Fill),
-            row![
-                button(text("MANAGE ALERTS").size(14).font(bold_font()))
-                    .padding([8, 16])
-                    .on_press(Message::ToggleSubscriptions)
-                    .style(move |_theme, _status| {
-                        let active = self.show_subscriptions;
-                        button::Style {
-                            background: Some(
-                                if active {
-                                    SOFT_GOLD
-                                } else {
-                                    Color::TRANSPARENT
-                                }
-                                .into(),
-                            ),
-                            text_color: if active { Color::BLACK } else { SOFT_GOLD },
-                            border: Border {
-                                color: SOFT_GOLD,
-                                width: 1.0,
-                                radius: 4.0.into(),
-                            },
-                            ..Default::default()
-                        }
-                    }),
-                Space::new().width(Length::Fixed(10.0)),
-                column![
-                    button(
-                        text("REFRESH")
-                            .size(14)
-                            .font(bold_font())
-                            .align_x(Alignment::Center)
-                    )
-                    .padding([8, 16])
-                    .on_press(Message::Refresh)
-                    .style(refresh_button_style),
-                    text(format!("Auto-refresh in: {}", countdown_text))
-                        .size(11)
-                        .color(TEXT_DIM)
-                        .align_x(Alignment::End),
-                ]
-                .spacing(4)
-                .align_x(Alignment::End)
-            ]
-            .align_y(Alignment::Start)
-        ]
-        .align_y(Alignment::Center)
-        .padding(20);
+        let sidebar = render_sidebar(self);
+        let header = render_header(self, &countdown_text);
 
         let content = match self.current_tab {
             0 => render_home(self),
-            1 => render_settings(self),
+            1 => render_archimedea(self),
+            2 => render_settings(self),
             idx => unreachable!("No tab defined under {idx}"),
         };
 
-        container(column![
-            title_bar,
-            container(content).padding(padding::horizontal(20))
-        ])
+        let right_pane = column![
+            header,
+            container(content)
+                .padding(padding::horizontal(20))
+                .height(Length::Fill)
+        ]
         .width(Length::Fill)
-        .height(Length::Fill)
-        .style(|_theme| container::Style {
-            background: Some(BG_DARK.into()),
-            ..Default::default()
-        })
-        .into()
+        .height(Length::Fill);
+
+        container(row![sidebar, right_pane])
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .style(|_theme| container::Style {
+                background: Some(BG_DARK.into()),
+                ..Default::default()
+            })
+            .into()
     }
 }

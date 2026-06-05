@@ -42,8 +42,16 @@ pub struct SubscriptionState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LastFissureFetch {
+pub struct AppData {
     pub fissures: Vec<Fissure>,
+    pub archimedea: worldstate_parser::ArchimedeaRoot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LastFetch {
+    pub fissures: Vec<Fissure>,
+    #[serde(default)]
+    pub archimedea: Option<worldstate_parser::ArchimedeaRoot>,
     pub at: chrono::DateTime<Utc>,
 }
 
@@ -55,7 +63,7 @@ pub struct AppConfig {
     pub subscriptions: SubscriptionState,
     pub volume: f32,
 
-    pub last_fetch: Option<LastFissureFetch>,
+    pub last_fetch: Option<LastFetch>,
 }
 
 impl Default for AppConfig {

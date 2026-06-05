@@ -9,6 +9,7 @@ use iced::{
     Length,
     padding,
     widget::{
+        Space,
         button,
         column,
         container,
@@ -17,7 +18,6 @@ use iced::{
         svg,
         text,
         toggler,
-        Space,
     },
 };
 use worldstate_parser::{
@@ -27,6 +27,14 @@ use worldstate_parser::{
     MissionType,
 };
 
+use super::theme::{
+    CARD_BG,
+    ERROR_RED,
+    SOFT_CYAN,
+    SOFT_GOLD,
+    TEXT_DIM,
+    bold_font,
+};
 use crate::{
     models::{
         DataState,
@@ -39,14 +47,6 @@ use crate::{
         VoidFissuresApp,
         images::IMAGE_DIR,
     },
-};
-use super::theme::{
-    CARD_BG,
-    ERROR_RED,
-    SOFT_CYAN,
-    SOFT_GOLD,
-    TEXT_DIM,
-    bold_font,
 };
 
 pub fn filter_chip<'a, Message: Clone + 'a>(
@@ -658,7 +658,7 @@ pub fn render_fissures(app: &VoidFissuresApp) -> Element<'_, Message> {
 
     let filter_bar = container(filter_content).padding(padding::bottom(10));
 
-    let content: Element<'_, Message> = match &app.fissures {
+    let content: Element<'_, Message> = match &app.world_state.fissures {
         DataState::Loading => container(text("ANALYZING...").size(18).color(SOFT_CYAN))
             .width(Length::Fill)
             .height(Length::Fill)
@@ -676,7 +676,7 @@ pub fn render_fissures(app: &VoidFissuresApp) -> Element<'_, Message> {
         .center_y(Length::Fill)
         .into(),
         DataState::Loaded(data) => {
-            let filtered: Vec<_> = data.fissures
+            let filtered: Vec<_> = data
                 .iter()
                 .filter(|f| app.active_filters.contains(&f.tier))
                 .filter(|f| {

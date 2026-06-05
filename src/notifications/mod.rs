@@ -12,7 +12,6 @@ use tokio::{
 };
 
 use crate::models::{
-    AppData,
     DataState,
     SubscriptionState,
     mission_type_name,
@@ -27,15 +26,14 @@ pub fn get_source() -> Decoder<Cursor<&'static [u8]>> {
 pub async fn background_notification_task(
     subscription_rx: watch::Receiver<SubscriptionState>,
     player: Arc<rodio::Player>,
-    mut fissures_rx: watch::Receiver<DataState<Box<AppData>>>,
+    mut fissures_rx: watch::Receiver<DataState<Vec<worldstate_parser::Fissure>>>,
 ) {
     let mut notified_ids: HashSet<String> = HashSet::new();
     let mut should_play_sound = false;
     let mut first_fetch = true;
 
     loop {
-        if let DataState::Loaded(ref app_data) = *fissures_rx.borrow() {
-            let fissures = &app_data.fissures;
+        if let DataState::Loaded(ref fissures) = *fissures_rx.borrow() {
             let subs = subscription_rx.borrow();
 
             // for app startup; pollute notified ids so we don't send a notification on startup

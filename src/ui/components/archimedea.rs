@@ -5,17 +5,28 @@ use iced::{
     Element,
     Length,
     widget::{
+        Space,
         button,
         column,
         container,
         row,
         scrollable,
         text,
-        Space,
     },
 };
 use worldstate_parser::ArchimedeaMission;
 
+use super::{
+    fissures::faction_icon,
+    theme::{
+        CARD_BG,
+        ERROR_RED,
+        SOFT_CYAN,
+        SOFT_GOLD,
+        TEXT_DIM,
+        bold_font,
+    },
+};
 use crate::{
     models::{
         DataState,
@@ -25,15 +36,6 @@ use crate::{
         Message,
         VoidFissuresApp,
     },
-};
-use super::fissures::faction_icon;
-use super::theme::{
-    CARD_BG,
-    ERROR_RED,
-    SOFT_CYAN,
-    SOFT_GOLD,
-    TEXT_DIM,
-    bold_font,
 };
 
 fn render_archimedea_mission_card<'a>(
@@ -48,9 +50,17 @@ fn render_archimedea_mission_card<'a>(
     if mission.difficulties.is_empty() {
         // Fallback for empty difficulties list
         let deviation_block = column![
-            text("DEVIATION").size(11).font(bold_font()).color(SOFT_CYAN),
-            text("Unknown").size(15).font(bold_font()).color(Color::WHITE),
-            text("No deviation details available").size(13).color(TEXT_DIM),
+            text("DEVIATION")
+                .size(11)
+                .font(bold_font())
+                .color(SOFT_CYAN),
+            text("Unknown")
+                .size(15)
+                .font(bold_font())
+                .color(Color::WHITE),
+            text("No deviation details available")
+                .size(13)
+                .color(TEXT_DIM),
         ]
         .spacing(2)
         .width(Length::FillPortion(1));
@@ -69,8 +79,12 @@ fn render_archimedea_mission_card<'a>(
         .spacing(4)
         .width(Length::FillPortion(1));
 
-        let diff_row = row![risks_block, Space::new().width(Length::Fixed(20.0)), deviation_block]
-            .width(Length::Fill);
+        let diff_row = row![
+            risks_block,
+            Space::new().width(Length::Fixed(20.0)),
+            deviation_block
+        ]
+        .width(Length::Fill);
 
         difficulties_content = difficulties_content.push(diff_row);
     } else {
@@ -89,7 +103,10 @@ fn render_archimedea_mission_card<'a>(
                 .unwrap_or("No deviation description available");
 
             let deviation_block = column![
-                text("DEVIATION").size(11).font(bold_font()).color(SOFT_CYAN),
+                text("DEVIATION")
+                    .size(11)
+                    .font(bold_font())
+                    .color(SOFT_CYAN),
                 text(dev_title)
                     .size(15)
                     .font(bold_font())
@@ -148,8 +165,12 @@ fn render_archimedea_mission_card<'a>(
                 .width(Length::FillPortion(1))
             };
 
-            let diff_row = row![risks_block, Space::new().width(Length::Fixed(20.0)), deviation_block]
-                .width(Length::Fill);
+            let diff_row = row![
+                risks_block,
+                Space::new().width(Length::Fixed(20.0)),
+                deviation_block
+            ]
+            .width(Length::Fill);
 
             difficulties_content = difficulties_content.push(diff_row);
         }
@@ -196,15 +217,13 @@ fn render_archimedea_mission_card<'a>(
 }
 
 pub fn render_archimedea(app: &VoidFissuresApp) -> Element<'_, Message> {
-    match &app.fissures {
-        DataState::Loading => {
-            container(text("ANALYZING WORLDSTATE...").size(18).color(SOFT_GOLD))
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .center_x(Length::Fill)
-                .center_y(Length::Fill)
-                .into()
-        }
+    match &app.world_state.archimedea {
+        DataState::Loading => container(text("ANALYZING WORLDSTATE...").size(18).color(SOFT_GOLD))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
+            .into(),
         DataState::Error(e) => container(
             text(format!("VOID INTERFERENCE: {}", e))
                 .size(18)
@@ -215,8 +234,7 @@ pub fn render_archimedea(app: &VoidFissuresApp) -> Element<'_, Message> {
         .center_x(Length::Fill)
         .center_y(Length::Fill)
         .into(),
-        DataState::Loaded(data) => {
-            let root = &data.archimedea;
+        DataState::Loaded(root) => {
             if root.elite_deep.is_none() && root.elite_temporal.is_none() {
                 return container(
                     text("NO ACTIVE ELITE ARCHIMEDEA CHALLENGES FOUND")
@@ -319,7 +337,9 @@ pub fn render_archimedea(app: &VoidFissuresApp) -> Element<'_, Message> {
                     variables_elements.push(
                         column![
                             text("Unknown").size(15).font(bold_font()).color(SOFT_GOLD),
-                            text("No research modifiers details available").size(13).color(TEXT_DIM)
+                            text("No research modifiers details available")
+                                .size(13)
+                                .color(TEXT_DIM)
                         ]
                         .spacing(2)
                         .width(Length::Fixed(280.0))

@@ -9,7 +9,9 @@ use worldstate_parser::{
     },
 };
 
-pub async fn fetch_world_state(client: &reqwest::Client) -> Result<(Vec<Fissure>, worldstate_parser::ArchimedeaRoot), String> {
+pub async fn fetch_world_state(
+    client: &reqwest::Client,
+) -> Result<(Vec<Fissure>, worldstate_parser::ArchimedeaRoot), String> {
     let url = "https://api.warframe.com/cdn/worldState.php";
     let raw_json = client
         .get(url)

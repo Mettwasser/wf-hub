@@ -7,22 +7,31 @@ use tokio::sync::{
     Notify,
     watch,
 };
-use worldstate_parser::default_data_fetcher::CacheStrategy;
+use worldstate_parser::{
+    ArchimedeaRoot,
+    Fissure,
+    default_data_fetcher::CacheStrategy,
+};
 
 use crate::{
     fissures::fetch_world_state,
     models::{
         AppConfig,
-        AppData,
         DataState,
     },
 };
 
-pub async fn fissure_event_producer(
-    tx: watch::Sender<DataState<Box<AppData>>>,
-    refresh_signal: Arc<Notify>,
-) {
+pub struct WatchCollection {
+    pub fissure_tx: watch::Sender<DataState<Vec<Fissure>>>,
+    pub archimedea_tx: watch::Sender<DataState<Box<ArchimedeaRoot>>>,
+}
+
+pub async fn world_state_producer(collection: WatchCollection, refresh_signal: Arc<Notify>) {
     let client = reqwest::Client::new();
+    let WatchCollection {
+        fissure_tx,
+        archimedea_tx,
+    } = collection;
 
     worldstate_parser::default_data_fetcher::fetch_all(CacheStrategy::Duration(
         Duration::from_hours(72),
@@ -54,15 +63,16 @@ pub async fn fissure_event_producer(
     loop {
         let res = fetch_world_state(&client).await;
 
-        let data_state = match res {
-            Ok((fissures, archimedea)) => DataState::Loaded(Box::new(AppData {
-                fissures,
-                archimedea,
-            })),
-            Err(e) => DataState::Error(e.to_string()),
-        };
-
-        let _ = tx.send(data_state);
+        match res {
+            Ok((fissures, archimedea)) => {
+                let _ = fissure_tx.send(DataState::Loaded(fissures));
+                let _ = archimedea_tx.send(DataState::Loaded(Box::new(archimedea)));
+            }
+            Err(e) => {
+                let _ = fissure_tx.send(DataState::Error(e.to_string()));
+                let _ = archimedea_tx.send(DataState::Error(e.to_string()));
+            }
+        }
 
         tokio::select! {
             _ = tokio::time::sleep(Duration::from_mins(5)) => {

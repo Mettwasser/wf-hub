@@ -37,10 +37,8 @@ use worldstate_parser::{
 
 use self::components::*;
 use crate::{
-    fissure_producer::fissure_event_producer,
     models::{
         AppConfig,
-        AppData,
         DataState,
         LastFetch,
         SteelPathFilter,
@@ -51,10 +49,19 @@ use crate::{
         background_notification_task,
         get_source,
     },
+    world_state_producer::{
+        WatchCollection,
+        world_state_producer,
+    },
 };
 
+pub struct WorldState {
+    pub fissures: DataState<Vec<worldstate_parser::Fissure>>,
+    pub archimedea: DataState<Box<worldstate_parser::ArchimedeaRoot>>,
+}
+
 pub struct VoidFissuresApp {
-    pub fissures: DataState<Box<AppData>>,
+    pub world_state: WorldState,
     pub last_fetch: chrono::DateTime<Utc>,
     pub active_filters: HashSet<FissureTier>,
     pub mission_filters: HashSet<MissionType>,
@@ -75,7 +82,8 @@ pub struct VoidFissuresApp {
 pub enum Message {
     Refresh,
     Tick,
-    FissuresLoaded(DataState<Box<AppData>>),
+    FissuresLoaded(DataState<Vec<worldstate_parser::Fissure>>),
+    ArchimedeaLoaded(DataState<Box<worldstate_parser::ArchimedeaRoot>>),
     FilterToggled(FissureTier),
     MissionFilterToggled(MissionType),
     SteelPathFilterChanged(SteelPathFilter),
@@ -124,7 +132,10 @@ impl VoidFissuresApp {
         let now = Utc::now();
 
         let (subscription_tx, subscription_rx) = watch::channel(config.subscriptions.clone());
-        let (fissure_tx, fissure_rx) = watch::channel(DataState::<Box<AppData>>::Loading);
+        let (fissure_tx, fissure_rx) =
+            watch::channel(DataState::<Vec<worldstate_parser::Fissure>>::Loading);
+        let (archimedea_tx, archimedea_rx) =
+            watch::channel(DataState::<Box<worldstate_parser::ArchimedeaRoot>>::Loading);
         let notify = Arc::new(Notify::new());
 
         // SAFETY: This should have a static lifetime anyway. So it's cleaned up when the app
@@ -136,25 +147,34 @@ impl VoidFissuresApp {
         let player = Arc::new(Player::connect_new(handle.mixer()));
         player.set_volume(config.volume);
 
-        let app = Self {
-            fissures: config
-                .last_fetch
-                .as_ref()
-                .map(|lf| {
-                    let archimedea = lf.archimedea.clone().unwrap_or({
-                        worldstate_parser::ArchimedeaRoot {
+        let fissures_init = config
+            .last_fetch
+            .as_ref()
+            .map(|lf| DataState::Loaded(lf.fissures.clone()))
+            .unwrap_or(DataState::Loading);
+
+        let archimedea_init = config
+            .last_fetch
+            .as_ref()
+            .map(|lf| {
+                let archimedea =
+                    lf.archimedea
+                        .clone()
+                        .unwrap_or(worldstate_parser::ArchimedeaRoot {
                             deep: None,
                             elite_deep: None,
                             temporal: None,
                             elite_temporal: None,
-                        }
-                    });
-                    DataState::Loaded(Box::new(AppData {
-                        fissures: lf.fissures.clone(),
-                        archimedea,
-                    }))
-                })
-                .unwrap_or(DataState::Loading),
+                        });
+                DataState::Loaded(Box::new(archimedea))
+            })
+            .unwrap_or(DataState::Loading);
+
+        let app = Self {
+            world_state: WorldState {
+                fissures: fissures_init,
+                archimedea: archimedea_init,
+            },
             active_filters: config.active_filters,
             mission_filters: config.mission_filters,
             steel_path_filter: config.steel_path_filter,
@@ -186,37 +206,60 @@ impl VoidFissuresApp {
             })
         };
 
+        let archimedea_stream = {
+            let rx = archimedea_rx.clone();
+            iced::futures::stream::unfold(rx, async move |mut rx| {
+                if rx.changed().await.is_ok() {
+                    let data = rx.borrow().clone();
+                    Some((Message::ArchimedeaLoaded(data), rx))
+                } else {
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                    Some((
+                        Message::ArchimedeaLoaded(DataState::Error("Channel closed".to_owned())),
+                        rx,
+                    ))
+                }
+            })
+        };
+
+        let watch_collection = WatchCollection {
+            fissure_tx,
+            archimedea_tx,
+        };
+
         (
             app,
             Task::batch([
                 Task::stream(fissure_stream),
+                Task::stream(archimedea_stream),
                 Task::future(background_notification_task(
                     subscription_rx,
                     player.clone(),
                     fissure_rx.clone(),
                 ))
                 .discard(),
-                Task::future(fissure_event_producer(fissure_tx, notify.clone())).discard(),
+                Task::future(world_state_producer(watch_collection, notify.clone())).discard(),
             ]),
         )
     }
 
     fn save_config(&self) {
+        let last_fetch = match (&self.world_state.fissures, &self.world_state.archimedea) {
+            (DataState::Loaded(fissures), DataState::Loaded(archimedea)) => Some(LastFetch {
+                fissures: fissures.clone(),
+                archimedea: Some((**archimedea).clone()),
+                at: self.last_fetch,
+            }),
+            _ => None,
+        };
+
         AppConfig {
             active_filters: self.active_filters.clone(),
             mission_filters: self.mission_filters.clone(),
             steel_path_filter: self.steel_path_filter,
             subscriptions: self.subscriptions.clone(),
             volume: self.volume,
-            last_fetch: match &self.fissures {
-                DataState::Loading => None,
-                DataState::Loaded(data) => Some(LastFetch {
-                    fissures: data.fissures.clone(),
-                    archimedea: Some(data.archimedea.clone()),
-                    at: self.last_fetch,
-                }),
-                DataState::Error(_) => None,
-            },
+            last_fetch,
         }
         .save();
     }
@@ -224,24 +267,29 @@ impl VoidFissuresApp {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::Refresh => {
-                self.fissures = DataState::Loading;
+                self.world_state.fissures = DataState::Loading;
+                self.world_state.archimedea = DataState::Loading;
                 self.refresh_notifier.notify_one();
             }
             Message::Tick => {
                 let now = Utc::now();
 
-                if let DataState::Loaded(data) = &mut self.fissures {
-                    data.fissures.retain(|f| f.expiry > now);
+                if let DataState::Loaded(fissures) = &mut self.world_state.fissures {
+                    fissures.retain(|f| f.expiry > now);
                 }
             }
             Message::FissuresLoaded(mut data) => {
                 self.last_fetch = Utc::now();
 
-                if let DataState::Loaded(app_data) = &mut data {
-                    app_data.fissures.sort_by_key(|f| tier_to_int(f.tier));
+                if let DataState::Loaded(ref mut fissures) = data {
+                    fissures.sort_by_key(|f| tier_to_int(f.tier));
                 }
 
-                self.fissures = data;
+                self.world_state.fissures = data;
+                self.save_config();
+            }
+            Message::ArchimedeaLoaded(data) => {
+                self.world_state.archimedea = data;
                 self.save_config();
             }
             Message::FilterToggled(tier) => {

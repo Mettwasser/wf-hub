@@ -1,8 +1,8 @@
-pub mod fissure_producer;
 mod fissures;
 pub mod models;
 mod notifications;
 mod ui;
+pub mod world_state_producer;
 
 use crate::ui::VoidFissuresApp;
 

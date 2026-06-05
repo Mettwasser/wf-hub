@@ -69,7 +69,7 @@ fn render_archimedea_mission_card<'a>(
         .spacing(4)
         .width(Length::FillPortion(1));
 
-        let diff_row = row![deviation_block, Space::new().width(Length::Fixed(20.0)), risks_block]
+        let diff_row = row![risks_block, Space::new().width(Length::Fixed(20.0)), deviation_block]
             .width(Length::Fill);
 
         difficulties_content = difficulties_content.push(diff_row);
@@ -148,7 +148,7 @@ fn render_archimedea_mission_card<'a>(
                 .width(Length::FillPortion(1))
             };
 
-            let diff_row = row![deviation_block, Space::new().width(Length::Fixed(20.0)), risks_block]
+            let diff_row = row![risks_block, Space::new().width(Length::Fixed(20.0)), deviation_block]
                 .width(Length::Fill);
 
             difficulties_content = difficulties_content.push(diff_row);
@@ -175,7 +175,7 @@ fn render_archimedea_mission_card<'a>(
             ]
             .width(Length::Fill)
         ]
-        .padding(12)
+        .padding([18, 12])
         .spacing(12)
         .width(Length::Fill)
     ])
@@ -294,21 +294,19 @@ pub fn render_archimedea(app: &VoidFissuresApp) -> Element<'_, Message> {
                 }))
                 .spacing(10);
 
-                let time_remaining = format!(
-                    "EXPIRY: {}",
-                    archimedea
-                        .expiry
-                        .with_timezone(&chrono::Local)
-                        .format("%a, %b %-d @ %H:%M")
-                        .to_string()
-                        .to_uppercase()
-                );
-                let time_text = text(time_remaining)
-                    .size(14)
-                    .font(bold_font())
-                    .color(SOFT_GOLD);
+                let date_str = archimedea
+                    .expiry
+                    .with_timezone(&chrono::Local)
+                    .format("%a, %b %-d @ %H:%M")
+                    .to_string()
+                    .to_uppercase();
 
-                let top_bar = row![sub_tabs_row, Space::new().width(Length::Fill), time_text]
+                let time_row = row![
+                    text("EXPIRY: ").size(14).font(bold_font()).color(SOFT_GOLD),
+                    text(date_str).size(14).font(bold_font()).color(SOFT_CYAN),
+                ];
+
+                let top_bar = row![sub_tabs_row, Space::new().width(Length::Fill), time_row]
                     .align_y(Alignment::Center);
 
                 let mut mission_cards = column![].spacing(12).width(Length::Fill);
@@ -381,9 +379,9 @@ pub fn render_archimedea(app: &VoidFissuresApp) -> Element<'_, Message> {
                 let main_col = column![
                     top_bar,
                     Space::new().height(Length::Fixed(15.0)),
-                    mission_cards,
+                    variables_card,
                     Space::new().height(Length::Fixed(20.0)),
-                    variables_card
+                    mission_cards
                 ]
                 .width(Length::Fill)
                 .spacing(10);

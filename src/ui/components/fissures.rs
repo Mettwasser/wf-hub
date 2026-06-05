@@ -16,6 +16,7 @@ use iced::{
         scrollable,
         svg,
         text,
+        toggler,
         Space,
     },
 };
@@ -610,6 +611,13 @@ pub fn render_fissures(app: &VoidFissuresApp) -> Element<'_, Message> {
                             .size(12)
                             .font(bold_font())
                             .color(SOFT_GOLD),
+                        Space::new().width(Length::Fixed(15.0)),
+                        toggler(app.subscriptions.enabled)
+                            .label("ENABLED")
+                            .text_size(11)
+                            .font(bold_font())
+                            .spacing(8)
+                            .on_toggle(Message::ToggleNotifications),
                         Space::new().width(Length::Fill),
                         button(text("TEST ALERT").size(10).font(bold_font()))
                             .padding([4, 12])

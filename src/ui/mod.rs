@@ -85,6 +85,7 @@ pub enum Message {
     SubscriptionMissionToggled(bool, MissionType),
 
     ToggleSubscriptions,
+    ToggleNotifications(bool),
     TestAlert,
     SwitchTab(usize),
     SwitchArchimedeaTab(usize),
@@ -295,6 +296,11 @@ impl VoidFissuresApp {
             }
             Message::ToggleSubscriptions => {
                 self.show_subscriptions = !self.show_subscriptions;
+            }
+            Message::ToggleNotifications(enabled) => {
+                self.subscriptions.enabled = enabled;
+                let _ = self.subscription_tx.send(self.subscriptions.clone());
+                self.save_config();
             }
             Message::TestAlert => {
                 let _ = notify_rust::Notification::new()

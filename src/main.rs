@@ -32,7 +32,7 @@ fn main() -> iced::Result {
         VoidFissuresApp::update,
         VoidFissuresApp::view,
     )
-    .title("Void Fissures")
+    .title("Warframe Hub")
     .subscription(VoidFissuresApp::tick_subscription)
     .theme(VoidFissuresApp::theme)
     .run()

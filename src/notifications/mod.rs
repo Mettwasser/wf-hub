@@ -62,40 +62,43 @@ pub async fn background_notification_task(
                         .is_some_and(|n| sub.mission_types.contains(&n.mission_type));
 
                 if matches_tier && matches_mission && !notified_ids.contains(&fissure.id) {
-                    let node_name = fissure
-                        .node
-                        .as_ref()
-                        .map(|n| n.name.clone())
-                        .unwrap_or_else(|| "Unknown".to_string());
+                    if subs.enabled {
+                        let node_name = fissure
+                            .node
+                            .as_ref()
+                            .map(|n| n.name.clone())
+                            .unwrap_or_else(|| "Unknown".to_string());
 
-                    let mtype = fissure
-                        .node
-                        .as_ref()
-                        .map(|n| mission_type_name(n.mission_type))
-                        .unwrap_or_else(|| "Unknown".to_string());
+                        let mtype = fissure
+                            .node
+                            .as_ref()
+                            .map(|n| mission_type_name(n.mission_type))
+                            .unwrap_or_else(|| "Unknown".to_string());
 
-                    let planet = fissure
-                        .node
-                        .as_ref()
-                        .map(|n| n.planet.clone())
-                        .unwrap_or_else(|| "Unknown".to_string());
+                        let planet = fissure
+                            .node
+                            .as_ref()
+                            .map(|n| n.planet.clone())
+                            .unwrap_or_else(|| "Unknown".to_string());
 
-                    let steel_path_tag = if fissure.is_steel_path {
-                        " - STEEL PATH"
-                    } else {
-                        ""
-                    };
+                        let steel_path_tag = if fissure.is_steel_path {
+                            " - STEEL PATH"
+                        } else {
+                            ""
+                        };
 
-                    let _ = Notification::new()
-                        .summary("Fissure Alert")
-                        .body(&format!(
-                            "{:?} {mtype} at {node_name} ({planet}){steel_path_tag}",
-                            fissure.tier,
-                        ))
-                        .appname("Void Fissures")
-                        .show();
+                        let _ = Notification::new()
+                            .summary("Fissure Alert")
+                            .body(&format!(
+                                "{:?} {mtype} at {node_name} ({planet}){steel_path_tag}",
+                                fissure.tier,
+                            ))
+                            .appname("Void Fissures")
+                            .show();
 
-                    should_play_sound = true;
+                        should_play_sound = true;
+                    }
+
                     notified_ids.insert(fissure.id.clone());
                 }
             }

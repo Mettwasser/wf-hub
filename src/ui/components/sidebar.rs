@@ -93,15 +93,38 @@ pub fn render_sidebar(app: &VoidFissuresApp) -> Element<'_, Message> {
     let menu = column![
         sidebar_button("VOID FISSURES", app.current_tab == 0, Message::SwitchTab(0)),
         sidebar_button("ELITE ARCHIMEDEA", app.current_tab == 1, Message::SwitchTab(1)),
-        sidebar_button("SETTINGS", app.current_tab == 2, Message::SwitchTab(2)),
+        // SETTINGS is hidden for now until more options are introduced
+        // sidebar_button("SETTINGS", app.current_tab == 2, Message::SwitchTab(2)),
     ]
     .spacing(8);
 
     let volume_slider = column![
-        text("SYSTEM VOLUME")
-            .size(10)
-            .font(bold_font())
-            .color(TEXT_DIM),
+        row![
+            text("SYSTEM VOLUME")
+                .size(10)
+                .font(bold_font())
+                .color(TEXT_DIM),
+            Space::new().width(Length::Fill),
+            button(
+                text("TEST")
+                    .size(9)
+                    .font(bold_font())
+                    .align_x(Alignment::Center),
+            )
+            .padding([2, 6])
+            .on_press(Message::TestVolume)
+            .style(|_, _| button::Style {
+                background: Some(Color::TRANSPARENT.into()),
+                text_color: SOFT_GOLD,
+                border: Border {
+                    color: SOFT_GOLD,
+                    width: 1.0,
+                    radius: 2.0.into(),
+                },
+                ..Default::default()
+            })
+        ]
+        .align_y(Alignment::Center),
         row![
             text(format!("{:.0}%", app.volume * 100.0))
                 .size(12)

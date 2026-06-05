@@ -1,6 +1,6 @@
 [package]
 name = "wf-hub"
-version = "0.2.3"
+version = "0.3.0"
 edition = "2024"
 
 [features]
@@ -15,6 +15,7 @@ reqwest = { version = "0.13.4", features = ["json"] }
 rodio = "0.22.2"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.150"
+sweeten = "0.14.0"
 tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
 tracing = "0.1.44"
 tracing-appender = "0.2.5"

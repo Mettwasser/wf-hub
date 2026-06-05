@@ -35,10 +35,26 @@ pub struct FissureSubscription {
     pub mission_types: HashSet<MissionType>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscriptionState {
     pub normal: FissureSubscription,
     pub steel_path: FissureSubscription,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+impl Default for SubscriptionState {
+    fn default() -> Self {
+        Self {
+            normal: FissureSubscription::default(),
+            steel_path: FissureSubscription::default(),
+            enabled: true,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -122,4 +138,19 @@ pub fn mission_type_name(mtype: MissionType) -> String {
         .ok()
         .and_then(|v| v.as_str().map(|s| s.to_uppercase()))
         .unwrap_or_else(|| format!("{:?}", mtype).to_uppercase())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_subscription_state_defaults() {
+        let state = SubscriptionState::default();
+        assert!(state.enabled);
+
+        let json = r#"{"normal":{"tiers":[],"mission_types":[]},"steel_path":{"tiers":[],"mission_types":[]}}"#;
+        let deserialized: SubscriptionState = serde_json::from_str(json).unwrap();
+        assert!(deserialized.enabled);
+    }
 }

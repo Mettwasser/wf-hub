@@ -358,7 +358,7 @@ impl VoidFissuresApp {
         let header = render_header(self, &countdown_text);
 
         let content = match self.current_tab {
-            0 => render_home(self),
+            0 => render_fissures(self),
             1 => render_archimedea(self),
             2 => render_settings(self),
             idx => unreachable!("No tab defined under {idx}"),

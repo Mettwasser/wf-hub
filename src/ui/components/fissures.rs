@@ -618,12 +618,17 @@ pub fn render_fissures(app: &WarframeHubApp) -> Element<'_, Message> {
                             .font(bold_font())
                             .color(SOFT_GOLD),
                         Space::new().width(Length::Fixed(15.0)),
-                        toggler(app.subscriptions.enabled)
-                            .label("ENABLED")
-                            .text_size(11)
-                            .font(bold_font())
-                            .spacing(8)
-                            .on_toggle(Message::ToggleNotifications),
+                        {
+                            let mut t = toggler(app.subscriptions.fissures.enabled)
+                                .label("ENABLED")
+                                .text_size(11)
+                                .font(bold_font())
+                                .spacing(8);
+                            if app.subscriptions.global_enabled {
+                                t = t.on_toggle(Message::ToggleFissureNotifications);
+                            }
+                            t
+                        },
                         Space::new().width(Length::Fill),
                         button(text("TEST ALERT").size(10).font(bold_font()))
                             .padding([4, 12])
@@ -643,9 +648,9 @@ pub fn render_fissures(app: &WarframeHubApp) -> Element<'_, Message> {
                     ]
                     .align_y(Alignment::Center),
                     Space::new().height(Length::Fixed(12.0)),
-                    render_sub_section(false, &app.subscriptions.normal),
+                    render_sub_section(false, &app.subscriptions.fissures.normal),
                     Space::new().height(Length::Fixed(20.0)),
-                    render_sub_section(true, &app.subscriptions.steel_path),
+                    render_sub_section(true, &app.subscriptions.fissures.steel_path),
                 ])
                 .padding(15)
                 .style(|_theme| container::Style {

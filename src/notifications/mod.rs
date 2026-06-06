@@ -18,6 +18,7 @@ use crate::{
     },
     utils::notification,
 };
+use worldstate_parser::cycles::cetus::CetusState;
 
 const FILE_CONTENTS: &[u8] = include_bytes!("../../sounds/notification.mp3");
 
@@ -45,9 +46,9 @@ pub async fn background_notification_task(
 
             for fissure in fissures {
                 let sub = if fissure.is_steel_path {
-                    &subs.steel_path
+                    &subs.fissures.steel_path
                 } else {
-                    &subs.normal
+                    &subs.fissures.normal
                 };
 
                 if sub.tiers.is_empty() && sub.mission_types.is_empty() {
@@ -62,7 +63,7 @@ pub async fn background_notification_task(
                         .is_some_and(|n| sub.mission_types.contains(&n.mission_type));
 
                 if matches_tier && matches_mission && !notified_ids.contains(&fissure.id) {
-                    if subs.enabled {
+                    if subs.global_enabled && subs.fissures.enabled {
                         let node_name = fissure
                             .node
                             .as_ref()
@@ -116,5 +117,35 @@ pub async fn background_notification_task(
 
         tracing::info!(first_fetch, ?notified_ids, "Completed iteration");
         let _ = fissures_rx.changed().await;
+    }
+}
+
+pub async fn cetus_notification_task(
+    subscription_rx: watch::Receiver<SubscriptionState>,
+    player: Arc<rodio::Player>,
+    mut open_worlds_rx: watch::Receiver<DataState<crate::models::OpenWorldCycles>>,
+) {
+    let mut last_state = None;
+
+    loop {
+        if let DataState::Loaded(ref cycles) = *open_worlds_rx.borrow() {
+            let current_state = cycles.cetus.state;
+
+            if let Some(prev) = last_state && prev == CetusState::Day && current_state == CetusState::Night {
+                let subs = subscription_rx.borrow();
+                if subs.global_enabled && subs.cetus_night_enabled {
+                    let _ = notification()
+                        .summary("Cetus Alert")
+                        .body("Night has fallen on the Plains of Eidolon!")
+                        .show();
+
+                    let source = get_source();
+                    player.append(source);
+                }
+            }
+            last_state = Some(current_state);
+        }
+
+        let _ = open_worlds_rx.changed().await;
     }
 }

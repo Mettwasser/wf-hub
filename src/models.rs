@@ -40,19 +40,39 @@ fn default_true() -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubscriptionState {
+pub struct FissureSubscriptionState {
     pub normal: FissureSubscription,
     pub steel_path: FissureSubscription,
     #[serde(default = "default_true")]
     pub enabled: bool,
 }
 
-impl Default for SubscriptionState {
+impl Default for FissureSubscriptionState {
     fn default() -> Self {
         Self {
             normal: FissureSubscription::default(),
             steel_path: FissureSubscription::default(),
             enabled: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SubscriptionState {
+    #[serde(flatten)]
+    pub fissures: FissureSubscriptionState,
+    #[serde(default = "default_true")]
+    pub global_enabled: bool,
+    #[serde(default)]
+    pub cetus_night_enabled: bool,
+}
+
+impl Default for SubscriptionState {
+    fn default() -> Self {
+        Self {
+            fissures: FissureSubscriptionState::default(),
+            global_enabled: true,
+            cetus_night_enabled: false,
         }
     }
 }
@@ -165,10 +185,14 @@ mod tests {
     #[test]
     fn test_subscription_state_defaults() {
         let state = SubscriptionState::default();
-        assert!(state.enabled);
+        assert!(state.fissures.enabled);
+        assert!(state.global_enabled);
+        assert!(!state.cetus_night_enabled);
 
         let json = r#"{"normal":{"tiers":[],"mission_types":[]},"steel_path":{"tiers":[],"mission_types":[]}}"#;
         let deserialized: SubscriptionState = serde_json::from_str(json).unwrap();
-        assert!(deserialized.enabled);
+        assert!(deserialized.fissures.enabled);
+        assert!(deserialized.global_enabled);
+        assert!(!deserialized.cetus_night_enabled);
     }
 }

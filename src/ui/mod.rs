@@ -48,6 +48,7 @@ use crate::{
     },
     notifications::{
         background_notification_task,
+        cetus_notification_task,
         get_source,
     },
     world_state_producer::{
@@ -114,8 +115,11 @@ pub enum Message {
     SubscriptionTierToggled(bool, FissureTier),
     SubscriptionMissionToggled(bool, MissionType),
 
+    ToggleGlobalNotifications(bool),
     ToggleSubscriptions,
-    ToggleNotifications(bool),
+    ToggleFissureNotifications(bool),
+    ToggleCetusNotifications(bool),
+
     TestAlert,
     SwitchTab(usize),
     SwitchArchimedeaTab(usize),
@@ -230,7 +234,7 @@ impl WarframeHubApp {
         let streams = streams![
             (fissure_rx.clone(), Message::FissuresLoaded),
             (archimedea_rx, Message::ArchimedeaLoaded),
-            (open_worlds_rx, Message::OpenWorldsLoaded),
+            (open_worlds_rx.clone(), Message::OpenWorldsLoaded),
         ];
 
         let watch_collection = WatchCollection {
@@ -244,9 +248,15 @@ impl WarframeHubApp {
             Task::batch([
                 streams,
                 Task::future(background_notification_task(
+                    subscription_rx.clone(),
+                    player.clone(),
+                    fissure_rx,
+                ))
+                .discard(),
+                Task::future(cetus_notification_task(
                     subscription_rx,
                     player,
-                    fissure_rx,
+                    open_worlds_rx,
                 ))
                 .discard(),
                 Task::future(world_state_producer(watch_collection, notify.clone())).discard(),
@@ -346,9 +356,9 @@ impl WarframeHubApp {
             }
             Message::SubscriptionTierToggled(is_steel_path, tier) => {
                 let sub = if is_steel_path {
-                    &mut self.subscriptions.steel_path
+                    &mut self.subscriptions.fissures.steel_path
                 } else {
-                    &mut self.subscriptions.normal
+                    &mut self.subscriptions.fissures.normal
                 };
 
                 if sub.tiers.contains(&tier) {
@@ -361,9 +371,9 @@ impl WarframeHubApp {
             }
             Message::SubscriptionMissionToggled(is_steel_path, mtype) => {
                 let sub = if is_steel_path {
-                    &mut self.subscriptions.steel_path
+                    &mut self.subscriptions.fissures.steel_path
                 } else {
-                    &mut self.subscriptions.normal
+                    &mut self.subscriptions.fissures.normal
                 };
 
                 if sub.mission_types.contains(&mtype) {
@@ -377,8 +387,18 @@ impl WarframeHubApp {
             Message::ToggleSubscriptions => {
                 self.show_subscriptions = !self.show_subscriptions;
             }
-            Message::ToggleNotifications(enabled) => {
-                self.subscriptions.enabled = enabled;
+            Message::ToggleFissureNotifications(enabled) => {
+                self.subscriptions.fissures.enabled = enabled;
+                let _ = self.subscription_tx.send(self.subscriptions.clone());
+                self.save_config();
+            }
+            Message::ToggleGlobalNotifications(enabled) => {
+                self.subscriptions.global_enabled = enabled;
+                let _ = self.subscription_tx.send(self.subscriptions.clone());
+                self.save_config();
+            }
+            Message::ToggleCetusNotifications(enabled) => {
+                self.subscriptions.cetus_night_enabled = enabled;
                 let _ = self.subscription_tx.send(self.subscriptions.clone());
                 self.save_config();
             }

@@ -10,19 +10,18 @@ use iced::{
         column,
         container,
         row,
-        slider,
         text,
     },
 };
 
-use crate::ui::{
-    Message,
-    WarframeHubApp,
-};
 use super::theme::{
     SOFT_GOLD,
     TEXT_DIM,
     bold_font,
+};
+use crate::ui::{
+    Message,
+    WarframeHubApp,
 };
 
 fn sidebar_button<'a>(
@@ -39,17 +38,21 @@ fn sidebar_button<'a>(
                 .width(Length::Fixed(4.0))
                 .height(Length::Fill)
                 .style(move |_| container::Style {
-                    background: Some(if active { SOFT_GOLD } else { Color::TRANSPARENT }.into()),
+                    background: Some(
+                        if active {
+                            SOFT_GOLD
+                        } else {
+                            Color::TRANSPARENT
+                        }
+                        .into()
+                    ),
                     ..Default::default()
                 }),
             Space::new().width(Length::Fixed(12.0)),
-            text(title)
-                .size(13)
-                .font(bold_font())
-                .color(text_color),
+            text(title).size(13).font(bold_font()).color(text_color),
         ]
         .align_y(Alignment::Center)
-        .height(Length::Fill)
+        .height(Length::Fill),
     )
     .width(Length::Fill)
     .height(Length::Fixed(48.0))
@@ -86,69 +89,27 @@ pub fn render_sidebar(app: &WarframeHubApp) -> Element<'_, Message> {
                 .color(Color::WHITE),
             text("HUB").size(20).font(bold_font()).color(SOFT_GOLD),
         ]
-        .spacing(4)
+        .spacing(4),
     )
     .padding(iced::padding::bottom(20));
 
     let menu = column![
         sidebar_button("VOID FISSURES", app.current_tab == 0, Message::SwitchTab(0)),
-        sidebar_button("ELITE ARCHIMEDEA", app.current_tab == 1, Message::SwitchTab(1)),
+        sidebar_button(
+            "ELITE ARCHIMEDEA",
+            app.current_tab == 1,
+            Message::SwitchTab(1)
+        ),
         sidebar_button("OPEN WORLDS", app.current_tab == 2, Message::SwitchTab(2)),
-        // SETTINGS is hidden for now until more options are introduced
-        // sidebar_button("SETTINGS", app.current_tab == 3, Message::SwitchTab(3)),
     ]
     .spacing(8);
-
-    let volume_slider = column![
-        row![
-            text("SYSTEM VOLUME")
-                .size(10)
-                .font(bold_font())
-                .color(TEXT_DIM),
-            Space::new().width(Length::Fill),
-            button(
-                text("TEST")
-                    .size(9)
-                    .font(bold_font())
-                    .align_x(Alignment::Center),
-            )
-            .padding([2, 6])
-            .on_press(Message::TestVolume)
-            .style(|_, _| button::Style {
-                background: Some(Color::TRANSPARENT.into()),
-                text_color: SOFT_GOLD,
-                border: Border {
-                    color: SOFT_GOLD,
-                    width: 1.0,
-                    radius: 2.0.into(),
-                },
-                ..Default::default()
-            })
-        ]
-        .align_y(Alignment::Center),
-        row![
-            text(format!("{:.0}%", app.volume * 100.0))
-                .size(12)
-                .font(bold_font())
-                .color(Color::WHITE),
-            slider(
-                0.0..=100.0,
-                app.volume * 100.0,
-                |val| Message::ChangeVolume(val / 100.0)
-            )
-            .width(Length::Fill),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center)
-    ]
-    .spacing(6);
 
     container(
         column![
             logo,
             menu,
             Space::new().height(Length::Fill),
-            volume_slider,
+            sidebar_button("SETTINGS", app.current_tab == 3, Message::SwitchTab(3)),
         ]
         .spacing(15)
         .height(Length::Fill),

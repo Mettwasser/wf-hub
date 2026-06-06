@@ -1,6 +1,6 @@
 use iced::{
     Alignment, Border, Color, Element, Length,
-    widget::{column, container, row, scrollable, text, Space, Stack, image, button},
+    widget::{column, container, row, scrollable, text, Space, Stack, image, button, toggler},
 };
 use worldstate_parser::cycles::{
     cetus::CetusState,
@@ -30,6 +30,8 @@ struct WorldCardInfo {
     time_left: String,
     progress: f32,
     expanded: bool,
+    notifications_enabled: Option<bool>,
+    global_enabled: bool,
 }
 
 fn calculate_progress<S>(cycle: &worldstate_parser::cycles::Cycle<S>) -> f32 {
@@ -68,13 +70,31 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
         .width(Length::Fill)
         .height(Length::Fixed(4.0));
 
-    let card_content = column![
-        row![
+    let top_row = {
+        let mut r = row![
             text(info.world_name)
                 .size(22)
                 .font(bold_font())
                 .color(Color::WHITE),
             Space::new().width(Length::Fill),
+        ]
+        .align_y(Alignment::Center);
+
+        if let Some(enabled) = info.notifications_enabled {
+            let mut t = toggler(enabled)
+                .label("NIGHT ALERTS")
+                .text_size(11)
+                .font(bold_font())
+                .spacing(8);
+
+            if info.global_enabled {
+                t = t.on_toggle(Message::ToggleCetusNotifications);
+            }
+
+            r = r.push(t).push(Space::new().width(Length::Fixed(15.0)));
+        }
+
+        r.push(
             container(
                 text(info.phase_name)
                     .size(13)
@@ -91,8 +111,11 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
                 },
                 ..Default::default()
             })
-        ]
-        .align_y(Alignment::Center),
+        )
+    };
+
+    let card_content = column![
+        top_row,
 
         Space::new().height(Length::Fill),
 
@@ -331,6 +354,8 @@ pub fn render_open_worlds(app: &WarframeHubApp) -> Element<'_, Message> {
                 time_left: cycles.cetus.time_left(),
                 progress: calculate_progress(&cycles.cetus),
                 expanded: app.cetus_expanded,
+                notifications_enabled: Some(app.subscriptions.cetus_night_enabled),
+                global_enabled: app.subscriptions.global_enabled,
             };
             let cetus_card = render_card(cetus_info);
             let cetus_col = render_bounties_list(cetus_card, app.cetus_expanded, &cycles.cetus_bounties);
@@ -352,6 +377,8 @@ pub fn render_open_worlds(app: &WarframeHubApp) -> Element<'_, Message> {
                 time_left: cycles.vallis.time_left(),
                 progress: calculate_progress(&cycles.vallis),
                 expanded: app.vallis_expanded,
+                notifications_enabled: None,
+                global_enabled: app.subscriptions.global_enabled,
             };
             let vallis_card = render_card(vallis_info);
             let vallis_col = render_bounties_list(vallis_card, app.vallis_expanded, &cycles.vallis_bounties);
@@ -373,6 +400,8 @@ pub fn render_open_worlds(app: &WarframeHubApp) -> Element<'_, Message> {
                 time_left: cycles.cambion.time_left(),
                 progress: calculate_progress(&cycles.cambion),
                 expanded: app.cambion_expanded,
+                notifications_enabled: None,
+                global_enabled: app.subscriptions.global_enabled,
             };
             let cambion_card = render_card(cambion_info);
             let cambion_col = render_bounties_list(cambion_card, app.cambion_expanded, &cycles.cambion_bounties);

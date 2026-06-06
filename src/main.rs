@@ -1,9 +1,10 @@
-mod fissures;
 pub mod models;
 mod notifications;
 mod ui;
 pub mod utils;
+mod world_state;
 pub mod world_state_producer;
+pub mod test;
 
 use crate::ui::WarframeHubApp;
 

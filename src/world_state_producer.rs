@@ -14,11 +14,11 @@ use worldstate_parser::{
 };
 
 use crate::{
-    fissures::fetch_world_state,
     models::{
         AppConfig,
         DataState,
     },
+    world_state::fetch_world_state,
 };
 
 pub struct WatchCollection {

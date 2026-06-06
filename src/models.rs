@@ -62,6 +62,12 @@ pub struct OpenWorldCycles {
     pub cetus: worldstate_parser::cycles::cetus::CetusCycle,
     pub cambion: worldstate_parser::cycles::cambion_drift::CambionDriftCycle,
     pub vallis: worldstate_parser::cycles::orb_vallis::OrbVallisCycle,
+    #[serde(default)]
+    pub cetus_bounties: Vec<worldstate_parser::SyndicateJob>,
+    #[serde(default)]
+    pub cambion_bounties: Vec<worldstate_parser::SyndicateJob>,
+    #[serde(default)]
+    pub vallis_bounties: Vec<worldstate_parser::SyndicateJob>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

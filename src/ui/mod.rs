@@ -70,6 +70,13 @@ pub struct WorldState {
     pub open_worlds: DataState<crate::models::OpenWorldCycles>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpenWorldId {
+    Cetus,
+    Vallis,
+    Cambion,
+}
+
 pub struct WarframeHubApp {
     pub world_state: WorldState,
     pub last_fetch: chrono::DateTime<Utc>,
@@ -84,6 +91,10 @@ pub struct WarframeHubApp {
     pub current_tab: usize,
     pub selected_archimedea_tab: usize,
     pub volume: f32,
+
+    pub cetus_expanded: bool,
+    pub vallis_expanded: bool,
+    pub cambion_expanded: bool,
 
     pub volume_debouncer: Option<task::Handle>,
 }
@@ -108,6 +119,8 @@ pub enum Message {
     TestAlert,
     SwitchTab(usize),
     SwitchArchimedeaTab(usize),
+
+    ToggleBounties(OpenWorldId),
 
     // Volume
     ChangeVolume(f32),
@@ -208,6 +221,9 @@ impl WarframeHubApp {
             current_tab: config.current_tab,
             selected_archimedea_tab: 0,
             volume: config.volume,
+            cetus_expanded: false,
+            vallis_expanded: false,
+            cambion_expanded: false,
             volume_debouncer: None,
         };
 
@@ -381,6 +397,11 @@ impl WarframeHubApp {
             Message::SwitchArchimedeaTab(new_tab_idx) => {
                 self.selected_archimedea_tab = new_tab_idx;
             }
+            Message::ToggleBounties(id) => match id {
+                OpenWorldId::Cetus => self.cetus_expanded = !self.cetus_expanded,
+                OpenWorldId::Vallis => self.vallis_expanded = !self.vallis_expanded,
+                OpenWorldId::Cambion => self.cambion_expanded = !self.cambion_expanded,
+            },
             Message::TestVolume => {
                 self.audio_player.append(get_source());
             }

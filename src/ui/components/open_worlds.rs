@@ -34,7 +34,7 @@ use crate::{
     models::DataState,
     ui::{
         Message,
-        VoidFissuresApp,
+        WarframeHubApp,
         images::{
             get_cambiondrift_image,
             get_orbvallis_image,
@@ -103,9 +103,18 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
             )
             .padding([6, 12])
             .style(move |_| container::Style {
-                background: Some(Color { a: 0.12, ..info.phase_color }.into()),
+                background: Some(
+                    Color {
+                        a: 0.12,
+                        ..info.phase_color
+                    }
+                    .into()
+                ),
                 border: Border {
-                    color: Color { a: 0.25, ..info.phase_color },
+                    color: Color {
+                        a: 0.25,
+                        ..info.phase_color
+                    },
                     width: 1.0,
                     radius: 6.0.into(),
                 },
@@ -166,7 +175,7 @@ fn render_card<'a>(info: WorldCardInfo) -> Element<'a, Message> {
     Stack::with_children([base_image.into(), overlay.into()]).into()
 }
 
-pub fn render_open_worlds(app: &VoidFissuresApp) -> Element<'_, Message> {
+pub fn render_open_worlds(app: &WarframeHubApp) -> Element<'_, Message> {
     match &app.world_state.open_worlds {
         DataState::Loading => container(
             text("ANALYZING OPEN WORLD CYCLES...")

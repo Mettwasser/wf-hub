@@ -34,7 +34,7 @@ use crate::{
     },
     ui::{
         Message,
-        VoidFissuresApp,
+        WarframeHubApp,
     },
 };
 
@@ -216,7 +216,7 @@ fn render_archimedea_mission_card<'a>(
     .into()
 }
 
-pub fn render_archimedea(app: &VoidFissuresApp) -> Element<'_, Message> {
+pub fn render_archimedea(app: &WarframeHubApp) -> Element<'_, Message> {
     match &app.world_state.archimedea {
         DataState::Loading => container(text("ANALYZING WORLDSTATE...").size(18).color(SOFT_GOLD))
             .width(Length::Fill)

@@ -5,27 +5,27 @@ use iced::{
     Element,
     Length,
     widget::{
+        Space,
         button,
         column,
         container,
         row,
         text,
-        Space,
     },
 };
 
-use crate::ui::{
-    Message,
-    VoidFissuresApp,
-};
 use super::theme::{
     SOFT_GOLD,
     TEXT_DIM,
     bold_font,
     refresh_button_style,
 };
+use crate::ui::{
+    Message,
+    WarframeHubApp,
+};
 
-pub fn render_header<'a>(app: &'a VoidFissuresApp, countdown_text: &str) -> Element<'a, Message> {
+pub fn render_header<'a>(app: &'a WarframeHubApp, countdown_text: &str) -> Element<'a, Message> {
     let title = match app.current_tab {
         0 => "VOID FISSURES",
         1 => "ELITE ARCHIMEDEA",
@@ -97,7 +97,8 @@ pub fn render_header<'a>(app: &'a VoidFissuresApp, countdown_text: &str) -> Elem
         .into()
     } else {
         container(
-            row![title_text, Space::new().width(Length::Fill), action_buttons].align_y(Alignment::Center),
+            row![title_text, Space::new().width(Length::Fill), action_buttons]
+                .align_y(Alignment::Center),
         )
         .padding(20)
         .width(Length::Fill)

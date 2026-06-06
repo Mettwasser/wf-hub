@@ -16,11 +16,11 @@ use iced::{
 
 use crate::ui::{
     Message,
-    VoidFissuresApp,
+    WarframeHubApp,
 };
 use super::theme::SOFT_CYAN;
 
-pub fn render_settings(app: &VoidFissuresApp) -> Element<'_, Message> {
+pub fn render_settings(app: &WarframeHubApp) -> Element<'_, Message> {
     let slider = column![
         text("Volume"),
         row![

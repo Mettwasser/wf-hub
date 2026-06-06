@@ -4,17 +4,19 @@ use std::{
     sync::Arc,
 };
 
-use notify_rust::Notification;
 use rodio::Decoder;
 use tokio::{
     self,
     sync::watch,
 };
 
-use crate::models::{
-    DataState,
-    SubscriptionState,
-    mission_type_name,
+use crate::{
+    models::{
+        DataState,
+        SubscriptionState,
+        mission_type_name,
+    },
+    utils::notification,
 };
 
 const FILE_CONTENTS: &[u8] = include_bytes!("../../sounds/notification.mp3");
@@ -85,13 +87,12 @@ pub async fn background_notification_task(
                             ""
                         };
 
-                        let _ = Notification::new()
+                        let _ = notification()
                             .summary("Fissure Alert")
                             .body(&format!(
                                 "{:?} {mtype} at {node_name} ({planet}){steel_path_tag}",
                                 fissure.tier,
                             ))
-                            .appname("Void Fissures")
                             .show();
 
                         should_play_sound = true;

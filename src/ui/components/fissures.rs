@@ -44,7 +44,7 @@ use crate::{
     ui::{
         ALL_MISSION_TYPES,
         Message,
-        VoidFissuresApp,
+        WarframeHubApp,
         images::{
             FACTION_ICON_DIR,
             GENERAL_DIR,
@@ -422,7 +422,7 @@ pub fn format_eta(expiry: chrono::DateTime<Utc>) -> String {
     }
 }
 
-pub fn render_fissures(app: &VoidFissuresApp) -> Element<'_, Message> {
+pub fn render_fissures(app: &WarframeHubApp) -> Element<'_, Message> {
     let mut sorted_mission_types: Vec<_> = ALL_MISSION_TYPES.to_vec();
     sorted_mission_types.sort_by_key(|m| mission_type_name(*m));
 

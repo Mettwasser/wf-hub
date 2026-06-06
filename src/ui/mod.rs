@@ -14,6 +14,7 @@ use iced::{
     Subscription,
     Task,
     Theme,
+    futures::stream,
     padding,
     task,
     widget::{
@@ -55,13 +56,21 @@ use crate::{
     },
 };
 
+macro_rules! streams {
+    ($(( $rx:expr, $func:expr )),*,) => {{
+        Task::batch([
+            $( Task::stream(create_stream($rx, $func)) ),*
+        ])
+    }};
+}
+
 pub struct WorldState {
     pub fissures: DataState<Vec<worldstate_parser::Fissure>>,
     pub archimedea: DataState<Box<worldstate_parser::ArchimedeaRoot>>,
     pub open_worlds: DataState<crate::models::OpenWorldCycles>,
 }
 
-pub struct VoidFissuresApp {
+pub struct WarframeHubApp {
     pub world_state: WorldState,
     pub last_fetch: chrono::DateTime<Utc>,
     pub active_filters: HashSet<FissureTier>,
@@ -128,7 +137,7 @@ const ALL_MISSION_TYPES: &[MissionType] = &[
     MissionType::Assault,
 ];
 
-impl VoidFissuresApp {
+impl WarframeHubApp {
     pub fn init() -> (Self, Task<Message>) {
         let config = AppConfig::load();
         let now = Utc::now();
@@ -202,53 +211,11 @@ impl VoidFissuresApp {
             volume_debouncer: None,
         };
 
-        let fissure_stream = {
-            let rx = fissure_rx.clone();
-            iced::futures::stream::unfold(rx, async move |mut rx| {
-                if rx.changed().await.is_ok() {
-                    let data = rx.borrow().clone();
-                    Some((Message::FissuresLoaded(data), rx))
-                } else {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    Some((
-                        Message::FissuresLoaded(DataState::Error("Channel closed".to_owned())),
-                        rx,
-                    ))
-                }
-            })
-        };
-
-        let archimedea_stream = {
-            let rx = archimedea_rx.clone();
-            iced::futures::stream::unfold(rx, async move |mut rx| {
-                if rx.changed().await.is_ok() {
-                    let data = rx.borrow().clone();
-                    Some((Message::ArchimedeaLoaded(data), rx))
-                } else {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    Some((
-                        Message::ArchimedeaLoaded(DataState::Error("Channel closed".to_owned())),
-                        rx,
-                    ))
-                }
-            })
-        };
-
-        let open_worlds_stream = {
-            let rx = open_worlds_rx.clone();
-            iced::futures::stream::unfold(rx, async move |mut rx| {
-                if rx.changed().await.is_ok() {
-                    let data = rx.borrow().clone();
-                    Some((Message::OpenWorldsLoaded(data), rx))
-                } else {
-                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-                    Some((
-                        Message::OpenWorldsLoaded(DataState::Error("Channel closed".to_owned())),
-                        rx,
-                    ))
-                }
-            })
-        };
+        let streams = streams![
+            (fissure_rx.clone(), Message::FissuresLoaded),
+            (archimedea_rx, Message::ArchimedeaLoaded),
+            (open_worlds_rx, Message::OpenWorldsLoaded),
+        ];
 
         let watch_collection = WatchCollection {
             fissure_tx,
@@ -259,13 +226,11 @@ impl VoidFissuresApp {
         (
             app,
             Task::batch([
-                Task::stream(fissure_stream),
-                Task::stream(archimedea_stream),
-                Task::stream(open_worlds_stream),
+                streams,
                 Task::future(background_notification_task(
                     subscription_rx,
-                    player.clone(),
-                    fissure_rx.clone(),
+                    player,
+                    fissure_rx,
                 ))
                 .discard(),
                 Task::future(world_state_producer(watch_collection, notify.clone())).discard(),
@@ -319,8 +284,10 @@ impl VoidFissuresApp {
 
                 if let DataState::Loaded(open_worlds) = &mut self.world_state.open_worlds {
                     open_worlds.cetus = worldstate_parser::cycles::cetus::CetusCycle::now();
-                    open_worlds.vallis = worldstate_parser::cycles::orb_vallis::OrbVallisCycle::now();
-                    open_worlds.cambion = worldstate_parser::cycles::cambion_drift::CambionDriftCycle::now();
+                    open_worlds.vallis =
+                        worldstate_parser::cycles::orb_vallis::OrbVallisCycle::now();
+                    open_worlds.cambion =
+                        worldstate_parser::cycles::cambion_drift::CambionDriftCycle::now();
                 }
             }
             Message::FissuresLoaded(mut data) => {
@@ -487,4 +454,23 @@ impl VoidFissuresApp {
             })
             .into()
     }
+}
+
+fn create_stream<T: Clone>(
+    rx: watch::Receiver<DataState<T>>,
+    msg_func: impl Fn(DataState<T>) -> Message,
+) -> impl stream::Stream<Item = Message> {
+    stream::unfold((rx, msg_func), |(mut rx, msg_func)| async move {
+        if rx.changed().await.is_ok() {
+            let data = rx.borrow().clone();
+
+            Some((msg_func(data), (rx, msg_func)))
+        } else {
+            tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+            Some((
+                msg_func(DataState::Error("Channel closed".to_owned())),
+                (rx, msg_func),
+            ))
+        }
+    })
 }

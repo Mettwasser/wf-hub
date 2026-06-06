@@ -2,9 +2,10 @@ mod fissures;
 pub mod models;
 mod notifications;
 mod ui;
+pub mod utils;
 pub mod world_state_producer;
 
-use crate::ui::VoidFissuresApp;
+use crate::ui::WarframeHubApp;
 
 #[cfg(not(debug_assertions))]
 fn init_tracing() {
@@ -28,12 +29,12 @@ fn main() -> iced::Result {
     init_tracing();
 
     iced::application(
-        VoidFissuresApp::init,
-        VoidFissuresApp::update,
-        VoidFissuresApp::view,
+        WarframeHubApp::init,
+        WarframeHubApp::update,
+        WarframeHubApp::view,
     )
     .title("Warframe Hub")
-    .subscription(VoidFissuresApp::tick_subscription)
-    .theme(VoidFissuresApp::theme)
+    .subscription(WarframeHubApp::tick_subscription)
+    .theme(WarframeHubApp::theme)
     .run()
 }

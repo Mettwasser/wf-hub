@@ -17,7 +17,7 @@ use iced::{
 
 use crate::ui::{
     Message,
-    VoidFissuresApp,
+    WarframeHubApp,
 };
 use super::theme::{
     SOFT_GOLD,
@@ -77,7 +77,7 @@ fn sidebar_button<'a>(
     .into()
 }
 
-pub fn render_sidebar(app: &VoidFissuresApp) -> Element<'_, Message> {
+pub fn render_sidebar(app: &WarframeHubApp) -> Element<'_, Message> {
     let logo = container(
         row![
             text("WARFRAME")

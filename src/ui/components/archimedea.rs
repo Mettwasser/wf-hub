@@ -396,23 +396,32 @@ pub fn render_archimedea(app: &WarframeHubApp) -> Element<'_, Message> {
                     ..Default::default()
                 });
 
+                let scrollable_content = scrollable(
+                    container(
+                        column![
+                            variables_card,
+                            Space::new().height(Length::Fixed(8.0)),
+                            mission_cards
+                        ]
+                        .width(Length::Fill)
+                        .spacing(10)
+                    )
+                    .padding(iced::padding::right(20))
+                    .width(Length::Fill)
+                )
+                .height(Length::Fill);
+
                 let main_col = column![
                     top_bar,
-                    Space::new().height(Length::Fixed(15.0)),
-                    variables_card,
-                    Space::new().height(Length::Fixed(20.0)),
-                    mission_cards
+                    Space::new().height(Length::Fixed(24.0)),
+                    scrollable_content
                 ]
                 .width(Length::Fill)
-                .spacing(10);
+                .height(Length::Fill);
 
-                return container(scrollable(
-                    container(main_col)
-                        .padding(iced::padding::right(20))
-                        .width(Length::Fill),
-                ))
-                .padding(iced::padding::bottom(20))
-                .into();
+                return container(main_col)
+                    .padding(iced::padding::bottom(20))
+                    .into();
             }
 
             container(

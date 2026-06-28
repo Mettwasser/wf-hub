@@ -39,6 +39,7 @@ fn main() -> iced::Result {
     .subscription(WarframeHubApp::tick_subscription)
     .theme(WarframeHubApp::theme)
     .window(window::Settings {
+        #[cfg(target_os = "linux")]
         platform_specific: window::settings::PlatformSpecific {
             application_id: env!("CARGO_PKG_NAME").to_owned(),
             ..Default::default()

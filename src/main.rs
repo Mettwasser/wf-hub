@@ -5,6 +5,8 @@ pub mod utils;
 mod world_state;
 pub mod world_state_producer;
 
+use iced::window;
+
 use crate::ui::WarframeHubApp;
 
 #[cfg(not(debug_assertions))]
@@ -36,5 +38,12 @@ fn main() -> iced::Result {
     .title("Warframe Hub")
     .subscription(WarframeHubApp::tick_subscription)
     .theme(WarframeHubApp::theme)
+    .window(window::Settings {
+        platform_specific: window::settings::PlatformSpecific {
+            application_id: env!("CARGO_PKG_NAME").to_owned(),
+            ..Default::default()
+        },
+        ..Default::default()
+    })
     .run()
 }

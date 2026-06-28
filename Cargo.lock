@@ -1901,7 +1901,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -6725,7 +6725,7 @@ dependencies = [
 [[package]]
 name = "worldstate_parser"
 version = "0.1.0"
-source = "git+https://github.com/WFCD/worldstate_parser_rs#8a9792c63841187ed22392f1ead1a4753fb321ca"
+source = "git+https://github.com/WFCD/worldstate_parser_rs#9d212c22d27c61f42c93d181b419142ae5fc1c0c"
 dependencies = [
  "chrono",
  "derive_more",
